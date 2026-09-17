@@ -1,0 +1,53 @@
+{
+	"name": "leanest",
+	"version": "0.1.0",
+	"description": "Local-first test selector using Jev judgments to determine which tests are affected by a code change",
+	"type": "module",
+	"main": "./src/index.ts",
+	"module": "./src/index.ts",
+	"types": "./src/index.ts",
+	"bin": {
+		"leanest": "./src/cli.ts"
+	},
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"import": "./src/index.ts"
+		}
+	},
+	"files": ["src/**"],
+	"scripts": {
+		"lint": "bunx oxlint",
+		"format": "bunx oxfmt",
+		"test": "bun test",
+		"check": "bunx oxlint && bunx oxfmt --check && bunx style-doctor README.md && bun run typecheck && bun test",
+		"typecheck": "bunx tsc --noEmit",
+		"prepare": "bun run check",
+		"prepublishOnly": "bun run check"
+	},
+	"keywords": ["test", "selector", "jest", "vitest", "playwright", "jev", "typesafe", "ci"],
+	"author": "Leanest Contributors",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/baronunread/leanest.git"
+	},
+	"bugs": {
+		"url": "https://github.com/baronunread/leanest/issues"
+	},
+	"homepage": "https://github.com/baronunread/leanest#readme",
+	"packageManager": "bun@1.4.1",
+	"dependencies": {
+		"dotenv": "^17.4.2"
+	},
+	"devDependencies": {
+		"@oxlint/plugins": "1.83.0",
+		"@types/bun": "^1.4.2",
+		"@types/node": "^22.20.3",
+		"oxfmt": "0.68.0",
+		"oxlint": "1.83.0",
+		"style-doctor": "0.3.0",
+		"tsx": "^4.23.13",
+		"typescript": "^7.0.2"
+	}
+}

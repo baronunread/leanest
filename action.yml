@@ -1,0 +1,40 @@
+name: leanest
+description: Select and run only the tests affected by this PR's diff.
+branding:
+  icon: filter
+  color: green
+
+inputs:
+  framework:
+    description: Test framework adapter to use (playwright or vitest)
+    required: true
+    default: playwright
+  base:
+    description: Base git ref to diff against
+    required: false
+    default: ${{ github.event.pull_request.base.ref }}
+  dir:
+    description: Directory of the project under test
+    required: false
+    default: .
+  typesafe-api-key:
+    description: TypeSafe API key used for Jev judgments (falls back to a full run if unset)
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install leanest
+      shell: bash
+      run: bun add -g leanest
+
+    - name: Select and run affected tests
+      shell: bash
+      env:
+        TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key }}
+      run: leanest ${{ inputs.framework }} --base "${{ inputs.base }}" --dir "${{ inputs.dir }}"

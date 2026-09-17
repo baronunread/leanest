@@ -1,0 +1,212 @@
+#!/usr/bin/env bun
+
+import { Sieve } from "./sieve.js";
+import { SelectionPolicy } from "./selection-policy.js";
+import { runTests } from "./runner.js";
+
+interface Flags {
+  _: string[];
+  changed?: boolean;
+  json?: boolean;
+  shadow?: boolean;
+  full?: boolean;
+  base?: string;
+  dir?: string;
+  [key: string]: boolean | string | string[] | undefined;
+}
+
+async function main(): Promise<number> {
+  const args = Bun.argv.slice(2);
+  const rawCommand = args[0] ?? "help";
+  const command = rawCommand === "--help" ? "help" : rawCommand;
+  const rest = rawCommand === "--help" ? args : args.slice(1);
+  const flags = parseFlags(rest);
+  const framework = flags._[0] ?? "playwright";
+  const changed = flags.changed === true;
+  const json = flags.json === true;
+  const shadow = flags.shadow === true;
+  const full = flags.full === true;
+  // SAFETY: flags.dir is a directory path string or undefined
+  const cwd = (flags.dir as string | undefined) ?? ".";
+  // SAFETY: flags.base is a git ref string or undefined
+  const base = flags.base as string | undefined;
+
+  const sieve = new Sieve(cwd, base);
+
+  if (command === "help" || !command) {
+    printHelp();
+    return 0;
+  }
+
+  switch (command) {
+    case "inspect": {
+      const result = await sieve.inspect(framework);
+      printInspect(result);
+      return 0;
+    }
+    case "select": {
+      const result = await sieve.select(framework, changed);
+      if (json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        printSelect(result);
+      }
+      return 0;
+    }
+    case "playwright":
+    case "vitest": {
+      const result = await sieve.select(command, changed);
+      if (result.status === "error") {
+        console.error(`⚠ Jev unavailable (${result.error}), running the full suite.`);
+      }
+
+      if (json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        printSelect(result);
+      }
+
+      if (shadow) {
+        console.log(
+          `\nShadow mode: would run ${result.selectedTests.length} of ${result.totalTests} tests. Running full suite for real.`,
+        );
+        return await runTests(command, [], cwd);
+      }
+
+      if (full) {
+        console.log(`\nRunning the full suite (--full)...`);
+        return await runTests(command, [], cwd);
+      }
+
+      if (result.selectedTests.length === 0) {
+        console.log(`\nNothing to run.`);
+        return 0;
+      }
+
+      const paths = result.selectedTests.map((t) => t.identity.path);
+      console.log(`\nRunning ${command} on ${paths.length} selected test file(s)...`);
+      return await runTests(command, paths, cwd);
+    }
+    default: {
+      console.error(`Unknown command: ${command}`);
+      printHelp();
+      return 1;
+    }
+  }
+}
+
+function parseFlags(args: string[]): Flags {
+  const flags: Flags = { _: [] };
+  for (const arg of args) {
+    if (arg.startsWith("--")) {
+      const key = arg.slice(2);
+      if (flags[key] === undefined) {
+        flags[key] = true;
+      } else if (Array.isArray(flags[key])) {
+        // SAFETY: flags[key] is already confirmed as string[] via Array.isArray check
+        (flags[key] as string[]).push(arg);
+      }
+    } else if (arg.startsWith("-")) {
+      const key = arg.slice(1);
+      flags[key] = true;
+    } else {
+      flags._.push(arg);
+    }
+  }
+  return flags;
+}
+
+function printInspect(result: any): void {
+  const { change, discovered } = result;
+  const noChanges = change.changedFiles.length === 0;
+  if (noChanges && discovered.count > 0) {
+    console.log(`No changes detected against ${change.base}...${change.head}`);
+    console.log(`Evaluating all ${discovered.count} tests conservatively...\n`);
+  } else {
+    console.log(`Change: ${change.base}...${change.head}`);
+    console.log(`\nChanged:`);
+    for (const f of change.changedFiles.slice(0, 20)) {
+      console.log(`  ${f}`);
+    }
+    if (change.changedFiles.length > 20) {
+      console.log(`  ... and ${change.changedFiles.length - 20} more`);
+    }
+    console.log(``);
+  }
+  console.log(`Discovering ${discovered.framework} tests...`);
+  console.log(`  ${discovered.count} tests found`);
+  if (result.evaluated.length > 0) {
+    console.log(`\nEvaluating semantic impact...`);
+    console.log(`  ${result.evaluated.length} tests evaluated`);
+    console.log(`\nSelected ${result.selected.length} / ${discovered.count} tests`);
+    const policy = new SelectionPolicy();
+    const ranked = result.evaluated.sort((a: any, b: any) => b.probability - a.probability);
+    for (const entry of ranked.slice(0, 20)) {
+      const decision = policy.decide(entry.probability, entry.confidence, false);
+      console.log(`  ${decision} ${entry.test.identity.path}`);
+    }
+    if (ranked.length > 20) {
+      console.log(`  ... and ${ranked.length - 20} more`);
+    }
+  }
+  console.log(`\nSkipping ${result.skipped} tests.`);
+}
+
+function printSelect(result: any): void {
+  const noChanges = result.changedFiles.length === 0;
+  if (noChanges && result.totalTests > 0) {
+    console.log(`No changes detected.`);
+    console.log(`Evaluating all ${result.totalTests} tests conservatively...\n`);
+  } else {
+    console.log(`Changed:`);
+    for (const f of result.changedFiles.slice(0, 20)) {
+      console.log(`  ${f}`);
+    }
+    console.log(``);
+  }
+  console.log(`${result.totalTests} tests found`);
+  console.log(`\nSelected ${result.selectedTests.length} / ${result.totalTests} tests`);
+  for (const test of result.selectedTests.slice(0, 20)) {
+    console.log(`  RUN ${test.identity.path}`);
+  }
+  if (result.skippedTests > 0) {
+    console.log(`\nSkipping ${result.skippedTests} tests.`);
+  }
+}
+
+function printHelp(): void {
+  console.log(`Usage: leanest <command> [options]
+
+Commands:
+  inspect <framework>   Rank tests by relevance (no execution)
+  select <framework>    Select tests to run vs skip (no execution)
+  playwright [options]  Select, then actually run Playwright on the selection
+  vitest [options]      Select, then actually run Vitest on the selection
+
+Options:
+  --changed             Only changed files
+  --base <ref>          Base branch (default: main)
+  --dir <path>          Target directory (default: current directory)
+  --json                Output JSON
+  --shadow              Run the full suite, but also log what would have been skipped
+  --full                Skip selection, run the full suite
+  --help                Show this help
+
+Examples:
+  npx leanest inspect playwright
+  npx leanest select playwright --base origin/main
+  npx leanest playwright --changed
+  npx leanest playwright --changed --json
+  npx leanest playwright --shadow
+  npx leanest playwright --full
+  npx leanest inspect playwright --dir /path/to/repo
+  leanest vitest --dir ~/projects/my-app --changed
+`);
+}
+
+main()
+  .then((code) => process.exit(code))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
