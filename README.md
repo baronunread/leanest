@@ -4,6 +4,8 @@
 [![npm version](https://img.shields.io/npm/v/leanest)](https://www.npmjs.com/package/leanest)
 [![CI](https://github.com/baronunread/leanest/actions/workflows/ci.yml/badge.svg)](https://github.com/baronunread/leanest/actions)
 
+**[leanest.pages.dev](https://leanest.pages.dev/)**
+
 > Leanest does not predict which tests will fail. It determines which tests are safe enough not to run.
 
 Local-first test selection using [Jev](https://typesafe.ai) semantic judgments. Leanest sits in front of your existing test runner and runs only the tests that matter for a given code change. Everything else it skips, on purpose, out loud.
