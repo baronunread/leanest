@@ -4,7 +4,7 @@ import { Sieve } from "./sieve.js";
 import { SelectionPolicy } from "./selection-policy.js";
 import { runTests } from "./runner.js";
 
-interface Flags {
+export interface Flags {
   _: string[];
   changed?: boolean;
   json?: boolean;
@@ -26,10 +26,8 @@ async function main(): Promise<number> {
   const json = flags.json === true;
   const shadow = flags.shadow === true;
   const full = flags.full === true;
-  // SAFETY: flags.dir is a directory path string or undefined
-  const cwd = (flags.dir as string | undefined) ?? ".";
-  // SAFETY: flags.base is a git ref string or undefined
-  const base = flags.base as string | undefined;
+  const cwd = flags.dir ?? ".";
+  const base = flags.base;
 
   const sieve = new Sieve(cwd, base);
 
@@ -95,21 +93,24 @@ async function main(): Promise<number> {
   }
 }
 
-function parseFlags(args: string[]): Flags {
+const VALUE_FLAGS = new Set(["base", "dir"]);
+
+export function parseFlags(args: string[]): Flags {
   const flags: Flags = { _: [] };
-  for (const arg of args) {
-    if (arg.startsWith("--")) {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg?.startsWith("--")) {
       const key = arg.slice(2);
-      if (flags[key] === undefined) {
+      const next = args[i + 1];
+      if (VALUE_FLAGS.has(key) && next !== undefined && !next.startsWith("-")) {
+        flags[key] = next;
+        i++;
+      } else {
         flags[key] = true;
-      } else if (Array.isArray(flags[key])) {
-        // SAFETY: flags[key] is already confirmed as string[] via Array.isArray check
-        (flags[key] as string[]).push(arg);
       }
-    } else if (arg.startsWith("-")) {
-      const key = arg.slice(1);
-      flags[key] = true;
-    } else {
+    } else if (arg?.startsWith("-")) {
+      flags[arg.slice(1)] = true;
+    } else if (arg !== undefined) {
       flags._.push(arg);
     }
   }
@@ -204,9 +205,11 @@ Examples:
 `);
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+if (import.meta.main) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}
