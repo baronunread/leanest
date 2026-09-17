@@ -1,6 +1,6 @@
 {
 	"name": "leanest",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Local-first test selector using Jev judgments to determine which tests are affected by a code change",
 	"type": "module",
 	"main": "./src/index.ts",
