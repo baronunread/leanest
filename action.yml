@@ -12,7 +12,7 @@ inputs:
   base:
     description: Base git ref to diff against
     required: false
-    default: ${{ github.event.pull_request.base.ref }}
+    default: origin/${{ github.event.pull_request.base.ref }}
   dir:
     description: Directory of the project under test
     required: false
