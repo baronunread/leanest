@@ -6,13 +6,13 @@
 
 > Leanest does not predict which tests will fail. It determines which tests are safe enough not to run.
 
-Local-first test selection using [Jev](https://typesafe.ai) semantic judgments. Leanest sits in front of your existing test runner and runs only the tests that matter for a given code change — everything else it skips, on purpose, out loud.
+Local-first test selection using [Jev](https://typesafe.ai) semantic judgments. Leanest sits in front of your existing test runner and runs only the tests that matter for a given code change. Everything else it skips, on purpose, out loud.
 
 ---
 
 ## Install
 
-Requires [Bun](https://bun.sh) — the CLI runs on it directly, no build step.
+Requires [Bun](https://bun.sh): the CLI runs on it directly, no build step.
 
 ```bash
 bun add -D leanest
@@ -61,14 +61,14 @@ For each discovered test, Leanest asks:
 
 > **Could the current code change affect behavior verified by this test?**
 
-Tests that are confidently irrelevant get skipped. Everything else runs through your existing runner exactly as it would outside Leanest — same reporter, same exit code, same flags.
+Tests that are confidently irrelevant get skipped. Everything else runs through your existing runner exactly as it would outside Leanest: same reporter, same exit code, same flags.
 
 ## Core Principles
 
-- **Fail open** — uncertainty means RUN. A missing API key, an API timeout, or a malformed response always falls back to running the full suite, loudly (`⚠ Jev unavailable (...), running the full suite.`).
-- **Deterministic overrides** — a test whose own file changed always runs. No threshold decides that.
-- **Leanest doesn't run tests itself** — it selects file paths and hands them to your actual runner (`playwright test <paths>`, `vitest run <paths>`). It leaves reporters, retries, sharding, and CI-required-check behavior alone.
-- **Static checks are out of scope on purpose** — lint/format/typecheck are already fast at full scope; semantic per-rule selection would add latency for no real payoff. Leanest spends its Jev budget only on suites that are expensive to run in full: e2e today, more later.
+- **Fail open**: uncertainty means RUN. A missing API key, an API timeout, or a malformed response always falls back to running the full suite, loudly (`⚠ Jev unavailable (...), running the full suite.`).
+- **Deterministic overrides**: a test whose own file changed always runs. No threshold decides that.
+- **Leanest doesn't run tests itself**: it selects file paths and hands them to your actual runner (`playwright test <paths>`, `vitest run <paths>`). It leaves reporters, retries, sharding, and CI-required-check behavior alone.
+- **Static checks are out of scope on purpose**: lint/format/typecheck are already fast at full scope, and semantic per-rule selection would add latency for no real payoff. Leanest spends its Jev budget only on suites that are expensive to run in full: e2e today, more later.
 
 ## Adapters
 
@@ -125,7 +125,7 @@ npx leanest playwright --full
 
 ### Shadow mode
 
-Runs the full suite for real — nothing is skipped — but logs what Leanest would have skipped, so you can build trust in the selection before turning it on:
+Runs the full suite for real (it skips nothing), but logs what Leanest would have skipped, so you can build trust in the selection before turning it on:
 
 ```bash
 npx leanest playwright --shadow
@@ -153,7 +153,7 @@ Leanest loads `.env` for local convenience. The API key is never persisted or lo
 TYPESAFE_API_KEY=...
 ```
 
-That's the only configuration knob today — framework choice, base ref, and target directory are all CLI flags (`--base`, `--dir`), so there's nothing else to set up per project.
+That's the only configuration knob today. Framework choice, base ref, and target directory are all CLI flags (`--base`, `--dir`), so there's nothing else to set up per project.
 
 ## CI Integration
 
@@ -170,7 +170,7 @@ That's the only configuration knob today — framework choice, base ref, and tar
     typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
 ```
 
-This installs Bun, installs `leanest`, and replaces your existing "run e2e tests" step — same reporter output, same exit code, just fewer tests executed.
+This installs Bun, installs `leanest`, and replaces your existing "run e2e tests" step: same reporter output, same exit code, just fewer tests executed.
 
 ### Any other CI
 
@@ -195,4 +195,4 @@ See [SIEVE_SPEC.md](./SIEVE_SPEC.md) for the design rationale behind the selecti
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT. See [LICENSE](./LICENSE).
