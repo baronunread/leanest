@@ -155,7 +155,21 @@ Leanest loads `.env` for local convenience. The API key is never persisted or lo
 TYPESAFE_API_KEY=...
 ```
 
-That's the only configuration knob today. Framework choice, base ref, and target directory are all CLI flags (`--base`, `--dir`), so there's nothing else to set up per project.
+Framework choice, base ref, and target directory are all CLI flags (`--base`, `--dir`), so there's nothing else to set up per project.
+
+### Judge provider
+
+Leanest's selection judgment is pluggable. Pick a provider with `LEANEST_PROVIDER`:
+
+| Provider          | How                                              | API key needed |
+| ----------------- | ------------------------------------------------ | --------------- |
+| `jev` (default)   | TypeSafe's Jev, over HTTP                         | `TYPESAFE_API_KEY` |
+| `classifier-dev`  | classifier.dev, a free zero-shot classifier       | none |
+| `laya`            | Laya, self-hosted, runs in-process via ONNX Runtime (`bun add @receptron/laya`) | none |
+
+```bash
+LEANEST_PROVIDER=classifier-dev npx leanest playwright
+```
 
 ## CI Integration
 

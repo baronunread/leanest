@@ -20,6 +20,10 @@ inputs:
   typesafe-api-key:
     description: TypeSafe API key used for Jev judgments (falls back to a full run if unset)
     required: false
+  provider:
+    description: Judge provider to select tests with (jev, classifier-dev, or laya)
+    required: false
+    default: jev
 
 runs:
   using: composite
@@ -37,4 +41,5 @@ runs:
       shell: bash
       env:
         TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key }}
+        LEANEST_PROVIDER: ${{ inputs.provider }}
       run: leanest ${{ inputs.framework }} --base "${{ inputs.base }}" --dir "${{ inputs.dir }}"
