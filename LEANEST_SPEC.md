@@ -1,26 +1,22 @@
-# Sieve
+# Leanest
 
-> Working name. `sieve` appears potentially available as an unscoped npm
-> package, but naming is not final because an unrelated scoped developer
-> tool already uses a `sieve` CLI.
+## What Leanest Is
 
-## What Sieve Is
-
-Sieve is a local-first test selector that uses massively parallel Jev
+Leanest is a local-first test selector that uses massively parallel Jev
 judgments to determine which unit, integration, and E2E tests could be
 affected by a code change, allowing developers, coding agents, and CI to
 run only the tests that matter.
 
 The key principle is:
 
-> **Sieve does not predict which tests will fail. It determines which
+> **Leanest does not predict which tests will fail. It determines which
 > tests are safe enough not to run.**
 
-Sieve is not a test runner. Existing runners such as Vitest and
-Playwright still discover and execute tests. Sieve sits in front of them
+Leanest is not a test runner. Existing runners such as Vitest and
+Playwright still discover and execute tests. Leanest sits in front of them
 and selects the subset to execute.
 
-There is no required Sieve SaaS, account, hosted database, GitHub App,
+There is no required Leanest SaaS, account, hosted database, GitHub App,
 or proprietary runner.
 
 ## Why This Exists
@@ -32,7 +28,7 @@ A change may touch a tiny part of an application while CI still
 provisions the full environment and executes hundreds or thousands of
 unrelated tests.
 
-Sieve asks every discovered test, independently and in parallel:
+Leanest asks every discovered test, independently and in parallel:
 
 > **Could the current code change affect behavior verified by this
 > test?**
@@ -61,7 +57,7 @@ Repository
    +-- Tests
    |
    v
-Sieve
+Leanest
    |
    +-- Change resolver
    +-- Framework adapter
@@ -99,7 +95,7 @@ native filtering/execution, and result collection.
 
 ## TypeSafe / Jev Configuration
 
-Sieve uses the developer's own TypeSafe API key.
+Leanest uses the developer's own TypeSafe API key.
 
 The default environment variable is:
 
@@ -111,7 +107,7 @@ Local usage:
 
 ```bash
 export TYPESAFE_API_KEY="..."
-npx sieve playwright
+npx leanest playwright
 ```
 
 A project may keep the key in a gitignored `.env` file:
@@ -120,19 +116,19 @@ A project may keep the key in a gitignored `.env` file:
 TYPESAFE_API_KEY=...
 ```
 
-Sieve should load `.env` for convenient local usage.
+Leanest should load `.env` for convenient local usage.
 
 CI secrets are passed as environment variables:
 
 ```yaml
 - name: Run relevant E2E tests
-  run: npx sieve playwright --base origin/main
+  run: npx leanest playwright --base origin/main
   env:
     TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
 ```
 
-The API key must never be persisted by Sieve or placed directly in
-`sieve.config.ts`.
+The API key must never be persisted by Leanest or placed directly in
+`leanest.config.ts`.
 
 An optional config setting may allow teams to change the environment
 variable name:
@@ -147,7 +143,7 @@ export default defineConfig({
 
 ## Semantic Evaluation
 
-For every test case, Sieve evaluates the proposition:
+For every test case, Leanest evaluates the proposition:
 
 > **Could the code changes cause behavior verified by this test to
 > differ?**
@@ -232,7 +228,7 @@ eventually be calibrated from observed results.
 
 ### Hard invariant: fail open
 
-> **If Sieve does not know, run more tests, never fewer.**
+> **If Leanest does not know, run more tests, never fewer.**
 
 Examples:
 
@@ -289,20 +285,20 @@ framework + relative path + suite hierarchy + test name
 and hashed for storage.
 
 A moved or renamed test may initially receive a new identity. This is
-safe because lost history should make Sieve more conservative, not less.
+safe because lost history should make Leanest more conservative, not less.
 
 ## CLI Mockup
 
 Normal execution:
 
 ```bash
-npx sieve playwright
+npx leanest playwright
 ```
 
 Example:
 
 ```text
-$ sieve playwright
+$ leanest playwright
 
 Change: main...HEAD
 
@@ -339,50 +335,50 @@ Running Playwright...
 Working tree:
 
 ```bash
-npx sieve playwright --changed
+npx leanest playwright --changed
 ```
 
 Specific base:
 
 ```bash
-npx sieve playwright --base main
+npx leanest playwright --base main
 ```
 
 Agent/machine output:
 
 ```bash
-npx sieve playwright --changed --json
+npx leanest playwright --changed --json
 ```
 
 Selection only:
 
 ```bash
-npx sieve select playwright --base origin/main
+npx leanest select playwright --base origin/main
 ```
 
 Full suite:
 
 ```bash
-npx sieve playwright --full
+npx leanest playwright --full
 ```
 
 Shadow mode:
 
 ```bash
-npx sieve playwright --shadow
+npx leanest playwright --shadow
 ```
 
 Exact CLI syntax is provisional. Behavior is the contract.
 
 ## Agent Usage
 
-Sieve should be useful inside coding-agent loops:
+Leanest should be useful inside coding-agent loops:
 
 ```text
 agent edits code
       |
       v
-sieve playwright --changed --json
+leanest playwright --changed --json
       |
       v
 3 / 184 E2E tests relevant
@@ -401,7 +397,7 @@ to parse terminal prose.
 
 ## E2E Is First-Class
 
-E2E may be Sieve's strongest initial use case.
+E2E may be Leanest's strongest initial use case.
 
 The cost of an E2E job includes more than individual test runtime:
 
@@ -412,10 +408,10 @@ The cost of an E2E job includes more than individual test runtime:
 - external test infrastructure;
 - CI runner time.
 
-Therefore Sieve must support **selection without execution**.
+Therefore Leanest must support **selection without execution**.
 
 ```bash
-npx sieve select playwright --base origin/main
+npx leanest select playwright --base origin/main
 ```
 
 This allows CI to decide whether the E2E job should exist at all:
@@ -424,7 +420,7 @@ This allows CI to decide whether the E2E job should exist at all:
 git diff
    |
    v
-Sieve selection
+Leanest selection
    |
    +-- 0 relevant E2E tests
    |        |
@@ -445,7 +441,7 @@ environment.
 
 ## CI Usage
 
-Sieve should require no dedicated GitHub integration.
+Leanest should require no dedicated GitHub integration.
 
 ```yaml
 - uses: actions/checkout@v4
@@ -455,7 +451,7 @@ Sieve should require no dedicated GitHub integration.
 - run: npm ci
 
 - name: Run relevant E2E tests
-  run: npx sieve playwright --base origin/main
+  run: npx leanest playwright --base origin/main
   env:
     TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
 ```
@@ -465,10 +461,10 @@ CI, and local shells.
 
 ## Shadow Mode and Ground Truth
 
-Before real skipping is trusted, Sieve should support shadow mode.
+Before real skipping is trusted, Leanest should support shadow mode.
 
 ```text
-Sieve predicts subset
+Leanest predicts subset
         |
         +---- would RUN
         +---- would SKIP
@@ -494,7 +490,7 @@ A miss is the catastrophic metric.
 Local observations may eventually live under:
 
 ```text
-.sieve/
+.leanest/
   observations.jsonl
   cache/
 ```
@@ -535,7 +531,7 @@ The first implementation must **not skip tests**.
 Build an inspect/ranking prototype first:
 
 ```bash
-npx sieve inspect playwright
+npx leanest inspect playwright
 ```
 
 Example:
@@ -593,7 +589,7 @@ The first go/no-go question is:
 > **Do failing tests consistently concentrate at high semantic
 > relevance?**
 
-If Sieve cannot eliminate a useful fraction of the suite while retaining
+If Leanest cannot eliminate a useful fraction of the suite while retaining
 extremely high observed failure recall, stop the project before building
 the production selector.
 
@@ -614,7 +610,7 @@ the production selector.
 
 ## Explicitly Out of Scope for the POC
 
-- Sieve SaaS;
+- Leanest SaaS;
 - accounts;
 - dashboard;
 - hosted database;
@@ -633,7 +629,7 @@ the production selector.
 
 ## Naming
 
-**Working name: Sieve** (formerly `jev-test`).
+**Leanest** (formerly `jev-test`, then `Sieve` during early design).
 
 The metaphor is:
 
@@ -641,7 +637,7 @@ The metaphor is:
 2,847 tests
      |
      v
-   SIEVE
+   LEANEST
      |
      v
   183 tests
@@ -650,14 +646,11 @@ The metaphor is:
 Potential package/CLI:
 
 ```bash
-npm install -D sieve
-npx sieve playwright
+npm install -D leanest
+npx leanest playwright
 ```
 
-Naming is not final. An unrelated recent scoped npm package already
-exposes a `sieve` CLI, so npm registry, domain, GitHub, software, and
-trademark collision checks must be completed before committing to the
-name. \# TypeSafe / Jev Design Guidance
+\# TypeSafe / Jev Design Guidance
 
 The implementation agent **must read the current TypeSafe documentation
 before designing the Jev integration**. Do not infer Jev behavior from
@@ -676,13 +669,13 @@ examples, and relevant cookbooks when implementation details depend on
 them. TypeSafe's documentation may evolve; prefer the current docs over
 stale assumptions in this file.
 
-## System One principles Sieve should follow
+## System One principles Leanest should follow
 
-TypeSafe's System One guidance maps unusually well to Sieve. Preserve
+TypeSafe's System One guidance maps unusually well to Leanest. Preserve
 these principles in the implementation:
 
 1.  **Code owns control flow.** Jev supplies narrow semantic judgments;
-    Sieve's deterministic code decides RUN/SKIP, execution, failure
+    Leanest's deterministic code decides RUN/SKIP, execution, failure
     handling, caching, and side effects.
 2.  **Use code when the answer is deterministic.** Do not ask Jev
     whether a test changed, whether a path matches, whether
@@ -696,13 +689,13 @@ these principles in the implementation:
     one giant prose prompt.
 5.  **Ask narrow, atomic questions.** Avoid asking Jev to reason through
     the whole selection workflow or produce a list of tests to run.
-6.  **Fan out independent questions.** Sieve's core economic hypothesis
+6.  **Fan out independent questions.** Leanest's core economic hypothesis
     is that many narrow judgments over the same change can be evaluated
     in parallel.
 7.  **Compose signals in code.** Jev probabilities remain inspectable
     signals. Thresholds, deterministic overrides, and any later
     weighted/model-based composition live outside Jev.
-8.  **Route on uncertainty.** For Sieve, uncertainty routes toward RUN.
+8.  **Route on uncertainty.** For Leanest, uncertainty routes toward RUN.
     A test is skipped only when the selection policy has sufficient
     evidence that skipping is safe.
 9.  **Calibrate thresholds using real data.** Do not invent
@@ -714,7 +707,7 @@ these principles in the implementation:
 
 ## Current Jev task shape
 
-For the initial Sieve experiment, the best conceptual task shape is
+For the initial Leanest experiment, the best conceptual task shape is
 **Detection**: obtain a probability that a property is present.
 
 For each test:
@@ -724,7 +717,7 @@ For each test:
 The POC may rank those probabilities for inspection, but ranking is an
 analysis/output step rather than the fundamental semantic operation.
 
-Sieve then performs deterministic routing:
+Leanest then performs deterministic routing:
 
 ```text
 Change × TestCase
@@ -736,7 +729,7 @@ Jev Detection
 semantic probability
        |
        v
-Sieve policy
+Leanest policy
    |         |
    v         v
   RUN       SKIP
@@ -752,7 +745,7 @@ The first POC should use the smallest useful semantic signal possible.
 Do not prematurely create a large feature set.
 
 If experiments show that one relevance probability is insufficient,
-Sieve may later ask several independent atomic questions for each
+Leanest may later ask several independent atomic questions for each
 verification target, for example:
 
 ```text
@@ -773,14 +766,14 @@ framework metadata
 
 TypeSafe explicitly supports composing independent System One outputs in
 deterministic code or using probabilities as features in a downstream
-classical ML model. That gives Sieve a possible future path beyond a
+classical ML model. That gives Leanest a possible future path beyond a
 single hard-coded threshold.
 
 This is **future work**, not part of the initial falsification POC.
 
 # Generalized Verification Model
 
-Sieve's first implementation selects individual tests, but the
+Leanest's first implementation selects individual tests, but the
 underlying product primitive is broader:
 
 > **Given a code change, which existing verification work is relevant
@@ -850,7 +843,7 @@ migration checks, and other existing verification steps.
 
 ### Coding-agent verification planning
 
-After an agent edits code, Sieve can return the verification work
+After an agent edits code, Leanest can return the verification work
 relevant to the edit instead of forcing the agent to guess which
 tests/checks should run.
 
@@ -864,15 +857,15 @@ Playwright + Vitest TestCase selection.**
 
 # Product Boundary
 
-Sieve should remain about **selecting existing verification work**.
+Leanest should remain about **selecting existing verification work**.
 
-Do not expand Sieve into a generic semantic code linter, AI code
+Do not expand Leanest into a generic semantic code linter, AI code
 reviewer, security reviewer, policy engine, or agent harness merely
 because TypeSafe can support those use cases.
 
 The boundary is:
 
-> **Sieve decides what existing verification needs to run after a
+> **Leanest decides what existing verification needs to run after a
 > change.**
 
 It does not decide whether the code itself is good.

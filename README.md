@@ -193,7 +193,7 @@ bun test        # just the test suite
 
 ## Contributing
 
-See [SIEVE_SPEC.md](./SIEVE_SPEC.md) for the design rationale behind the selection policy.
+See [LEANEST_SPEC.md](./LEANEST_SPEC.md) for the design rationale behind the selection policy.
 
 ## License
 

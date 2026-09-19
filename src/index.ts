@@ -1,4 +1,4 @@
-export { runSieve, Sieve } from "./sieve.js";
+export { runLeanest, Leanest } from "./leanest.js";
 export { SelectionPolicy } from "./selection-policy.js";
 export { ChangeResolver } from "./git-diff.js";
 export { ContextBuilder } from "./context-builder.js";

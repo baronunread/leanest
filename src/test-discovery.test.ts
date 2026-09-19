@@ -5,7 +5,7 @@ import { join } from "path";
 import { TestDiscovery } from "./test-discovery.js";
 
 describe("TestDiscovery.discoverPlaywright", () => {
-  const root = mkdtempSync(join(tmpdir(), "sieve-discovery-"));
+  const root = mkdtempSync(join(tmpdir(), "leanest-discovery-"));
 
   beforeAll(() => {
     mkdirSync(join(root, "tests/e2e"), { recursive: true });

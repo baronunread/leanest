@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "sieve",
+      "name": "leanest",
       "devDependencies": {
         "@oxlint/plugins": "1.83.0",
         "@types/bun": "^1.4.2",

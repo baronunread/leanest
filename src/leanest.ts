@@ -5,7 +5,7 @@ import { ContextBuilder } from "./context-builder.js";
 import { SelectionPolicy } from "./selection-policy.js";
 import type { TestCase, SelectionResult, PipelineResult } from "./types.js";
 
-export class Sieve {
+export class Leanest {
   private jev: JevClient;
   private git: ChangeResolver;
   private discovery: TestDiscovery;
@@ -182,10 +182,10 @@ function extractConfidence(answer: { noul?: number; confidence?: number }): numb
   return Math.abs(noul - 0.5) * 2;
 }
 
-export async function runSieve(framework: string, command: string, cwd?: string): Promise<any> {
-  const sieve = new Sieve(cwd);
+export async function runLeanest(framework: string, command: string, cwd?: string): Promise<any> {
+  const leanest = new Leanest(cwd);
   if (command === "inspect") {
-    return await sieve.inspect(framework);
+    return await leanest.inspect(framework);
   }
-  return await sieve.select(framework);
+  return await leanest.select(framework);
 }
