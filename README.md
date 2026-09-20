@@ -64,7 +64,7 @@ Tests that are confidently irrelevant get skipped. Everything else runs through 
 ## Core Principles
 
 - **Fail open**: uncertainty means RUN. A missing API key, an API timeout, or a malformed response always falls back to running the full suite, loudly (`⚠ Jev unavailable (...), running the full suite.`).
-- **Deterministic overrides**: a test whose own file changed always runs. No threshold decides that.
+- **Deterministic overrides**: no threshold decides these, the judge isn't even asked. A test whose own file changed always runs, as does one that statically imports a changed file, or that navigates a route a changed file's own path names (e.g. `page.goto("/admin/users")` against a changed `routes/admin/users.tsx`) -- a heuristic that catches e2e route coupling no import graph can see, since a browser test never imports the page it drives.
 - **Leanest doesn't run tests itself**: it selects file paths and hands them to your actual runner (`playwright test <paths>`, `vitest run <paths>`). It leaves reporters, retries, sharding, and CI-required-check behavior alone.
 - **Static checks are out of scope on purpose**: lint/format/typecheck are already fast at full scope, and semantic per-rule selection would add latency for no real payoff. Leanest spends its Jev budget only on suites that are expensive to run in full: e2e today, more later.
 

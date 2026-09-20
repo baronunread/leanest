@@ -3,6 +3,17 @@ import type { JudgeAnswer, JudgeProvider, JudgeQuestion, JudgeState } from "../t
 const RUN_LABEL = "affected by this change";
 const SKIP_LABEL = "not affected by this change";
 
+// ponytail: classifier.dev is a generic zero-shot classifier, not a model
+// built for code-diff reasoning (see baronunread/leanest#2 discussion) --
+// it measurably misses same-page/same-route couplings jev catches, and its
+// answers aren't perfectly stable run to run on an identical diff. Damping
+// its reported confidence makes SelectionPolicy's "confident enough to
+// skip" bar (>= 0.5) harder to clear, trading some of its speed advantage
+// for fewer false skips. This factor is a guess, not a calibrated value --
+// upgrade path: replace with a real calibration curve once there's enough
+// shadow-mode data (predicted skip vs. actual test outcome) to fit one.
+const CONFIDENCE_DAMPING = 0.85;
+
 interface ClassifierDevResult {
   scores: Record<string, number>;
   confidence: number;
@@ -40,7 +51,7 @@ export function classifierDevProvider(options?: { baseUrl?: string }): JudgeProv
         const result = data.results[i];
         answers[id] = {
           probability: result?.scores[RUN_LABEL] ?? 0,
-          confidence: result?.confidence ?? 0,
+          confidence: (result?.confidence ?? 0) * CONFIDENCE_DAMPING,
         };
       });
       return answers;

@@ -3,10 +3,12 @@ import {
   type JudgeProvider,
   type JudgeQuestion,
 } from "../packages/judge/src/index.js";
-import { ChangeResolver } from "./git-diff.js";
+import { ChangeResolver, type GitChange } from "./git-diff.js";
 import { TestDiscovery } from "./test-discovery.js";
 import { ContextBuilder } from "./context-builder.js";
 import { SelectionPolicy } from "./selection-policy.js";
+import { importsChangedFile } from "./import-graph.js";
+import { touchesSameRoute } from "./route-heuristic.js";
 import type { TestCase, SelectionResult, PipelineResult } from "./types.js";
 
 export class Leanest {
@@ -68,7 +70,11 @@ export class Leanest {
 
     const ranked = this.policy.rank(evaluated);
     const selected = ranked
-      .filter((e) => this.policy.decide(e.probability, e.confidence, false) === "RUN")
+      .filter(
+        (e) =>
+          this.policy.decide(e.probability, e.confidence, this.deterministicRun(e.test, change)) ===
+          "RUN",
+      )
       .map((e) => e.test);
 
     return {
@@ -137,7 +143,8 @@ export class Leanest {
     const skipTests: TestCase[] = [];
 
     for (const entry of ranked) {
-      if (this.policy.decide(entry.probability, entry.confidence, false) === "RUN") {
+      const deterministicRun = this.deterministicRun(entry.test, change);
+      if (this.policy.decide(entry.probability, entry.confidence, deterministicRun) === "RUN") {
         runTests.push(entry.test);
       } else {
         skipTests.push(entry.test);
@@ -155,6 +162,12 @@ export class Leanest {
       changedFiles: change.changedFiles,
       diff: change.diff,
     };
+  }
+
+  private deterministicRun(test: TestCase, change: GitChange): boolean {
+    if (change.changedFiles.includes(test.identity.path)) return true;
+    if (importsChangedFile(test, change.changedFiles, this.cwd)) return true;
+    return touchesSameRoute(test, change.changedFiles);
   }
 
   private buildQuestions(tests: TestCase[], noChanges: boolean = false) {
