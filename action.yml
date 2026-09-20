@@ -23,7 +23,7 @@ inputs:
   provider:
     description: Judge provider to select tests with (jev, classifier-dev, or laya)
     required: false
-    default: jev
+    default: classifier-dev
 
 runs:
   using: composite

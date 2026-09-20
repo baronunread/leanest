@@ -11,7 +11,9 @@ const registry = {
   laya: layaProvider,
 } satisfies Record<string, () => JudgeProvider>;
 
-export function getProvider(name: string = process.env.LEANEST_PROVIDER ?? "jev"): JudgeProvider {
+export function getProvider(
+  name: string = process.env.LEANEST_PROVIDER ?? "classifier-dev",
+): JudgeProvider {
   const entry = Object.entries(registry).find(([key]) => key === name);
   if (!entry) {
     throw new Error(`Unknown provider "${name}". Options: ${Object.keys(registry).join(", ")}`);
