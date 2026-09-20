@@ -1,12 +1,12 @@
-import { JevClient, type JevQuestion, type JevResponse } from "./jev-client.js";
+import { getProvider, type JudgeProvider, type JudgeQuestion } from "@leanest/judge";
 import { ChangeResolver } from "./git-diff.js";
 import { TestDiscovery } from "./test-discovery.js";
 import { ContextBuilder } from "./context-builder.js";
 import { SelectionPolicy } from "./selection-policy.js";
 import type { TestCase, SelectionResult, PipelineResult } from "./types.js";
 
-export class Sieve {
-  private jev: JevClient;
+export class Leanest {
+  private judge: JudgeProvider;
   private git: ChangeResolver;
   private discovery: TestDiscovery;
   private context: ContextBuilder;
@@ -16,7 +16,7 @@ export class Sieve {
 
   constructor(cwd?: string, baseRef?: string) {
     this.cwd = cwd ?? ".";
-    this.jev = new JevClient();
+    this.judge = getProvider();
     this.git = new ChangeResolver(baseRef, this.cwd);
     this.discovery = new TestDiscovery();
     this.context = new ContextBuilder();
@@ -43,9 +43,9 @@ export class Sieve {
 
     const state = this.context.buildState(change, discovery.tests);
     const questions = this.buildQuestions(discovery.tests, change.changedFiles.length === 0);
-    let response: JevResponse;
+    let answers: Record<string, { probability: number; confidence: number }>;
     try {
-      response = await this.jev.evaluate(state, questions);
+      answers = await this.judge.evaluate(state, questions);
     } catch {
       return {
         change,
@@ -57,11 +57,9 @@ export class Sieve {
       };
     }
 
-    const evaluated = discovery.tests.map((test, _i) => {
-      const answer = response.answers[test.identity.hash];
-      const probability = extractNoul(answer);
-      const confidence = extractConfidence(answer);
-      return { test, probability, confidence };
+    const evaluated = discovery.tests.map((test) => {
+      const answer = answers[test.identity.hash];
+      return { test, probability: answer?.probability ?? 0, confidence: answer?.confidence ?? 0 };
     });
 
     const ranked = this.policy.rank(evaluated);
@@ -103,9 +101,9 @@ export class Sieve {
 
     const state = this.context.buildState(change, tests);
     const questions = this.buildQuestions(tests, change.changedFiles.length === 0);
-    let response: JevResponse;
+    let answers: Record<string, { probability: number; confidence: number }>;
     try {
-      response = await this.jev.evaluate(state, questions);
+      answers = await this.judge.evaluate(state, questions);
     } catch (error) {
       return {
         command: "select",
@@ -121,12 +119,12 @@ export class Sieve {
       };
     }
 
-    const evaluated = tests.map((test, _i) => {
-      const answer = response.answers[test.identity.hash];
+    const evaluated = tests.map((test) => {
+      const answer = answers[test.identity.hash];
       return {
         test,
-        probability: extractNoul(answer),
-        confidence: extractConfidence(answer),
+        probability: answer?.probability ?? 0,
+        confidence: answer?.confidence ?? 0,
       };
     });
 
@@ -156,10 +154,9 @@ export class Sieve {
   }
 
   private buildQuestions(tests: TestCase[], noChanges: boolean = false) {
-    const questions: Record<string, JevQuestion> = {};
+    const questions: Record<string, JudgeQuestion> = {};
     for (const test of tests) {
       questions[test.identity.hash] = {
-        type: "noul",
         instructions: noChanges
           ? `No code changes detected. Could ${test.identity.framework} test at ${test.identity.path} still be affected by any latent issue?`
           : `Could the current code change affect behavior verified by ${test.identity.framework} test at ${test.identity.path}?`,
@@ -169,23 +166,10 @@ export class Sieve {
   }
 }
 
-function extractNoul(answer: { noul?: number; confidence?: number }): number {
-  return answer.noul ?? 0;
-}
-
-function extractConfidence(answer: { noul?: number; confidence?: number }): number {
-  // The API's "noul" answers carry no explicit confidence field. Derive it
-  // from how decisive the probability itself is: a noul near 0 or 1 is a
-  // confident answer, a noul near 0.5 is genuine uncertainty (fail open).
-  if (answer.confidence !== undefined) return answer.confidence;
-  const noul = answer.noul ?? 0.5;
-  return Math.abs(noul - 0.5) * 2;
-}
-
-export async function runSieve(framework: string, command: string, cwd?: string): Promise<any> {
-  const sieve = new Sieve(cwd);
+export async function runLeanest(framework: string, command: string, cwd?: string): Promise<any> {
+  const leanest = new Leanest(cwd);
   if (command === "inspect") {
-    return await sieve.inspect(framework);
+    return await leanest.inspect(framework);
   }
-  return await sieve.select(framework);
+  return await leanest.select(framework);
 }

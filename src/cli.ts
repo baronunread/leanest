@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { Sieve } from "./sieve.js";
+import { Leanest } from "./leanest.js";
 import { SelectionPolicy } from "./selection-policy.js";
 import { runTests } from "./runner.js";
 
@@ -29,7 +29,7 @@ async function main(): Promise<number> {
   const cwd = flags.dir ?? ".";
   const base = flags.base;
 
-  const sieve = new Sieve(cwd, base);
+  const leanest = new Leanest(cwd, base);
 
   if (command === "help" || !command) {
     printHelp();
@@ -38,12 +38,12 @@ async function main(): Promise<number> {
 
   switch (command) {
     case "inspect": {
-      const result = await sieve.inspect(framework);
+      const result = await leanest.inspect(framework);
       printInspect(result);
       return 0;
     }
     case "select": {
-      const result = await sieve.select(framework, changed);
+      const result = await leanest.select(framework, changed);
       if (json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
@@ -53,7 +53,7 @@ async function main(): Promise<number> {
     }
     case "playwright":
     case "vitest": {
-      const result = await sieve.select(command, changed);
+      const result = await leanest.select(command, changed);
       if (result.status === "error") {
         console.error(`⚠ Jev unavailable (${result.error}), running the full suite.`);
       }

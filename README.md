@@ -8,7 +8,7 @@
 
 > Leanest does not predict which tests will fail. It determines which tests are safe enough not to run.
 
-Local-first test selection using [Jev](https://typesafe.ai) semantic judgments. Leanest sits in front of your existing test runner and runs only the tests that matter for a given code change. Everything else it skips, on purpose, out loud.
+Local-first test selection using semantic judgments (classifier.dev by default, or [Jev](https://typesafe.ai)/Laya). Leanest sits in front of your existing test runner and runs only the tests that matter for a given code change. Everything else it skips, on purpose, out loud.
 
 ---
 
@@ -20,11 +20,7 @@ Requires [Bun](https://bun.sh): the CLI runs on it directly, no build step.
 bun add -D leanest
 ```
 
-Set your TypeSafe API key:
-
-```bash
-export TYPESAFE_API_KEY="..."
-```
+Works with no setup: leanest defaults to classifier.dev, a free, no-auth judge. Switch to Jev if you want it by exporting `TYPESAFE_API_KEY` and setting `LEANEST_PROVIDER=jev` (see [Judge provider](#judge-provider)).
 
 ## Quick Start
 
@@ -155,7 +151,21 @@ Leanest loads `.env` for local convenience. The API key is never persisted or lo
 TYPESAFE_API_KEY=...
 ```
 
-That's the only configuration knob today. Framework choice, base ref, and target directory are all CLI flags (`--base`, `--dir`), so there's nothing else to set up per project.
+Framework choice, base ref, and target directory are all CLI flags (`--base`, `--dir`), so there's nothing else to set up per project.
+
+### Judge provider
+
+Leanest's selection judgment is pluggable. Pick a provider with `LEANEST_PROVIDER`:
+
+| Provider                    | How                                              | API key needed |
+| --------------------------- | ------------------------------------------------ | --------------- |
+| `classifier-dev` (default)  | classifier.dev, a free zero-shot classifier       | none |
+| `jev`                       | TypeSafe's Jev, over HTTP                         | `TYPESAFE_API_KEY` |
+| `laya`                      | Laya, self-hosted, runs in-process via ONNX Runtime (`bun add @receptron/laya`) | none |
+
+```bash
+LEANEST_PROVIDER=jev npx leanest playwright
+```
 
 ## CI Integration
 
@@ -169,10 +179,9 @@ That's the only configuration knob today. Framework choice, base ref, and target
 - uses: baronunread/leanest@v1
   with:
     framework: playwright
-    typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
 ```
 
-This installs Bun, installs `leanest`, and replaces your existing "run e2e tests" step: same reporter output, same exit code, just fewer tests executed.
+This installs Bun, installs `leanest`, and replaces your existing "run e2e tests" step: same reporter output, same exit code, just fewer tests executed. No secret required — the default `classifier-dev` provider needs no API key, which also means forked-repo PRs can use it without access to your repo's secrets. Pass `provider: jev` and `typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}` to use Jev instead.
 
 ### Any other CI
 
@@ -193,7 +202,7 @@ bun test        # just the test suite
 
 ## Contributing
 
-See [SIEVE_SPEC.md](./SIEVE_SPEC.md) for the design rationale behind the selection policy.
+See [LEANEST_SPEC.md](./LEANEST_SPEC.md) for the design rationale behind the selection policy.
 
 ## License
 
