@@ -1,4 +1,8 @@
-import { getProvider, type JudgeProvider, type JudgeQuestion } from "@leanest/judge";
+import {
+  getProvider,
+  type JudgeProvider,
+  type JudgeQuestion,
+} from "../packages/judge/src/index.js";
 import { ChangeResolver } from "./git-diff.js";
 import { TestDiscovery } from "./test-discovery.js";
 import { ContextBuilder } from "./context-builder.js";
