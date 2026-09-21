@@ -7,7 +7,7 @@
 	"module": "./src/index.ts",
 	"types": "./src/index.ts",
 	"bin": {
-		"leanest": "src/cli.ts"
+		"leanest": "dist/cli.js"
 	},
 	"exports": {
 		".": {
@@ -15,16 +15,17 @@
 			"import": "./src/index.ts"
 		}
 	},
-	"files": ["src/**", "!src/**/*.test.ts", "packages/judge/src/**"],
+	"files": ["dist/**", "src/**", "!src/**/*.test.ts", "packages/judge/src/**"],
 	"workspaces": ["packages/*"],
 	"scripts": {
+		"build": "bun build src/cli.ts --outfile=dist/cli.js --target=node && chmod +x dist/cli.js",
 		"lint": "bunx oxlint",
 		"format": "bunx oxfmt",
 		"test": "bun test",
 		"check": "bunx oxlint && bunx oxfmt --check && bunx style-doctor README.md && bun run typecheck && bun test",
 		"typecheck": "bunx tsc --noEmit",
 		"prepare": "bun run check",
-		"prepublishOnly": "bun run check"
+		"prepublishOnly": "bun run check && bun run build"
 	},
 	"keywords": ["test", "selector", "jest", "vitest", "playwright", "jev", "typesafe", "ci"],
 	"author": "Leanest Contributors",

@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import { Leanest } from "./leanest.js";
 import { SelectionPolicy } from "./selection-policy.js";
@@ -16,7 +16,7 @@ export interface Flags {
 }
 
 async function main(): Promise<number> {
-  const args = Bun.argv.slice(2);
+  const args = process.argv.slice(2);
   const rawCommand = args[0] ?? "help";
   const command = rawCommand === "--help" ? "help" : rawCommand;
   const rest = rawCommand === "--help" ? args : args.slice(1);
@@ -205,7 +205,7 @@ Examples:
 `);
 }
 
-if (import.meta.main) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main()
     .then((code) => process.exit(code))
     .catch((error) => {

@@ -1,5 +1,5 @@
-import { readFileSync, existsSync } from "fs";
-import { Glob } from "bun";
+import { readFileSync, existsSync, readdirSync } from "fs";
+import path from "node:path";
 import type { TestCase } from "./types.js";
 
 export interface DiscoveryResult {
@@ -56,19 +56,40 @@ export class TestDiscovery {
       FRAMEWORK_PATTERNS.playwright;
     const seen = new Set<string>();
 
-    for (const pattern of patterns) {
-      const glob = new Glob(pattern);
-      for (const file of glob.scanSync({ cwd: baseDir })) {
-        if (file.includes("node_modules/") || file.includes("dist/")) continue;
-        const path = baseDir === "." ? file : `${baseDir}/${file}`;
-        if (seen.has(path)) continue;
-        seen.add(path);
-        const test = this.extractTest(framework, path);
-        if (test) tests.push(test);
-      }
+    const suffixes = patterns.map((p) => p.slice(p.lastIndexOf("*") + 1));
+    for (const file of this.walk(baseDir)) {
+      if (!suffixes.some((suffix) => file.endsWith(suffix))) continue;
+      const relative = path.relative(baseDir, file);
+      const testPath = baseDir === "." ? relative : `${baseDir}/${relative}`;
+      if (seen.has(testPath)) continue;
+      seen.add(testPath);
+      const test = this.extractTest(framework, testPath);
+      if (test) tests.push(test);
     }
 
     return tests;
+  }
+
+  private walk(dir: string): string[] {
+    let entries: import("fs").Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    const files: string[] = [];
+    for (const entry of entries) {
+      if (entry.name === "node_modules" || entry.name === "dist" || entry.name.startsWith(".")) {
+        continue;
+      }
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...this.walk(full));
+      } else {
+        files.push(full);
+      }
+    }
+    return files;
   }
 
   private extractTest(framework: string, filePath: string): TestCase | null {

@@ -14,10 +14,11 @@ Local-first test selection using semantic judgments (classifier.dev by default, 
 
 ## Install
 
-Requires [Bun](https://bun.sh): the CLI runs on it directly, no build step.
+Works with npm, pnpm, yarn, or [Bun](https://bun.sh).
 
 ```bash
-bun add -D leanest
+npm install -D leanest
+# or: bun add -D leanest
 ```
 
 Works with no setup: leanest defaults to classifier.dev, a free, no-auth judge. Switch to Jev if you want it by exporting `TYPESAFE_API_KEY` and setting `LEANEST_PROVIDER=jev` (see [Judge provider](#judge-provider)).
@@ -186,7 +187,7 @@ This installs Bun, installs `leanest`, and replaces your existing "run e2e tests
 ### Any other CI
 
 ```bash
-bun add -g leanest
+npm install -g leanest
 leanest playwright --base origin/main
 ```
 

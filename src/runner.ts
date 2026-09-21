@@ -1,16 +1,23 @@
-const RUN_COMMANDS = {
-  playwright: (paths: string[]) => ["bunx", "playwright", "test", ...paths],
-  vitest: (paths: string[]) => ["bunx", "vitest", "run", ...paths],
-} satisfies Record<string, (paths: string[]) => string[]>;
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
-export function buildRunCommand(framework: string, paths: string[]): string[] {
-  // SAFETY: an unknown framework key just misses the lookup and falls back below
-  const build = RUN_COMMANDS[framework as keyof typeof RUN_COMMANDS] ?? RUN_COMMANDS.playwright;
-  return build(paths);
+const FRAMEWORKS = new Set(["playwright", "vitest"]);
+
+export function buildRunCommand(framework: string, paths: string[], cwd: string): string[] {
+  const name = FRAMEWORKS.has(framework) ? framework : "playwright";
+  const localBin = path.join(cwd, "node_modules", ".bin", name);
+  // ponytail: prefer the locally installed binary; fall back to npx for global/workspace installs
+  const runner = existsSync(localBin) ? localBin : "npx";
+  const args = existsSync(localBin) ? [] : [name];
+  return [runner, ...args, name === "vitest" ? "run" : "test", ...paths];
 }
 
 export async function runTests(framework: string, paths: string[], cwd: string): Promise<number> {
-  const argv = buildRunCommand(framework, paths);
-  const proc = Bun.spawn(argv, { cwd, stdio: ["inherit", "inherit", "inherit"] });
-  return await proc.exited;
+  const [cmd, ...args] = buildRunCommand(framework, paths, cwd);
+  return await new Promise((resolve, reject) => {
+    const proc = spawn(cmd, args, { cwd, stdio: "inherit" });
+    proc.on("exit", (code) => resolve(code ?? 1));
+    proc.on("error", reject);
+  });
 }
