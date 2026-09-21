@@ -1,6 +1,6 @@
 {
 	"name": "leanest",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"description": "Local-first test selector using semantic judgments (classifier.dev, Jev, or Laya) to determine which tests are affected by a code change",
 	"type": "module",
 	"main": "./src/index.ts",
@@ -15,8 +15,15 @@
 			"import": "./src/index.ts"
 		}
 	},
-	"files": ["dist/**", "src/**", "!src/**/*.test.ts", "packages/judge/src/**"],
-	"workspaces": ["packages/*"],
+	"files": [
+		"dist/**",
+		"src/**",
+		"!src/**/*.test.ts",
+		"packages/judge/src/**"
+	],
+	"workspaces": [
+		"packages/*"
+	],
 	"scripts": {
 		"build": "bun build src/cli.ts --outfile=dist/cli.js --target=node && chmod +x dist/cli.js",
 		"lint": "bunx oxlint",
@@ -27,7 +34,16 @@
 		"prepare": "bun run check",
 		"prepublishOnly": "bun run check && bun run build"
 	},
-	"keywords": ["test", "selector", "jest", "vitest", "playwright", "jev", "typesafe", "ci"],
+	"keywords": [
+		"test",
+		"selector",
+		"jest",
+		"vitest",
+		"playwright",
+		"jev",
+		"typesafe",
+		"ci"
+	],
 	"author": "Leanest Contributors",
 	"license": "MIT",
 	"repository": {
