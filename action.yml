@@ -34,9 +34,12 @@ runs:
   steps:
     # Install the leanest version matching this Action's ref, with the runner's own Node.
     # No setup-bun: the CLI runs on plain Node, so the caller's Bun stays untouched.
+    # An already-installed matching version is kept (this repo's CI installs its own build).
     - name: Install leanest
       shell: bash
-      run: npm install -g "leanest@$(node -p "require('$GITHUB_ACTION_PATH/package.json').version")"
+      run: |
+        V="$(node -p "require('$GITHUB_ACTION_PATH/package.json').version")"
+        npm ls -g "leanest@$V" >/dev/null 2>&1 || npm install -g "leanest@$V"
 
     - name: Select and run affected tests
       shell: bash

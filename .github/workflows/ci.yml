@@ -33,6 +33,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Install this checkout's build so the Action tests it, not the last npm release
+      # (on a version bump, npm doesn't have the new version until Release publishes it).
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install this checkout's leanest
+        run: |
+          bun install
+          bun run build
+          npm pack
+          npm install -g ./leanest-*.tgz
       - name: Change the fixture and stub Playwright
         run: |
           echo "// ci touch" >> fixtures/action/price.ts
