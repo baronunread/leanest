@@ -18,3 +18,10 @@ jobs:
       - run: bunx oxfmt --check
       - run: bun run typecheck
       - run: bun test
+      # Install the packed tarball globally so the bin runs through a symlink, like real consumers.
+      - name: Smoke test packed CLI
+        run: |
+          bun run build
+          npm pack
+          npm install -g ./leanest-*.tgz
+          leanest --help | grep -q Usage

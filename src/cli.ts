@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { Leanest } from "./leanest.js";
 import { SelectionPolicy } from "./selection-policy.js";
 import { runTests } from "./runner.js";
@@ -54,6 +56,13 @@ async function main(): Promise<number> {
     case "playwright":
     case "vitest": {
       const result = await leanest.select(command, changed);
+      if (result.totalTests === 0) {
+        console.error(
+          `No ${command} tests found in ${cwd}. Check --dir and your ${command} config.`,
+        );
+        return 1;
+      }
+
       if (result.status === "error") {
         console.error(`⚠ Jev unavailable (${result.error}), running the full suite.`);
       }
@@ -205,7 +214,9 @@ Examples:
 `);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Global installs run us through a symlink, so compare real paths, not raw argv.
+const entry = process.argv[1];
+if (entry && realpathSync(entry) === fileURLToPath(import.meta.url)) {
   main()
     .then((code) => process.exit(code))
     .catch((error) => {
