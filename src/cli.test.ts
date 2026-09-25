@@ -28,4 +28,11 @@ describe("parseFlags", () => {
     const flags = parseFlags(["playwright", "--changed"]);
     expect(flags._).toEqual(["playwright"]);
   });
+
+  test("forwards everything after -- to the runner untouched", () => {
+    const flags = parseFlags(["--full", "--", "--shard=1/3", "--project", "chromium"]);
+    expect(flags.full).toBe(true);
+    expect(flags.passthrough).toEqual(["--shard=1/3", "--project", "chromium"]);
+    expect(flags.project).toBeUndefined();
+  });
 });

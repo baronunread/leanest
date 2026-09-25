@@ -40,6 +40,9 @@ export interface SelectionResult {
   selectedTests: TestCase[];
   skippedTests: number;
   runTests: TestCase[];
+  skipped: TestCase[];
+  /** Why each test path was run or skipped. */
+  reasons: Record<string, string>;
   decision?: string;
   changedFiles: string[];
   diff: string;

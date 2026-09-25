@@ -72,8 +72,11 @@ export class Leanest {
     const selected = ranked
       .filter(
         (e) =>
-          this.policy.decide(e.probability, e.confidence, this.deterministicRun(e.test, change)) ===
-          "RUN",
+          this.policy.decide(
+            e.probability,
+            e.confidence,
+            this.deterministicReason(e.test, change) !== null,
+          ) === "RUN",
       )
       .map((e) => e.test);
 
@@ -104,6 +107,8 @@ export class Leanest {
         selectedTests: [],
         skippedTests: 0,
         runTests: [],
+        skipped: [],
+        reasons: {},
         changedFiles: change.changedFiles,
         diff: change.diff,
       };
@@ -124,6 +129,8 @@ export class Leanest {
         selectedTests: tests,
         skippedTests: 0,
         runTests: tests,
+        skipped: [],
+        reasons: Object.fromEntries(tests.map((t) => [t.identity.path, "judge unavailable"])),
         changedFiles: change.changedFiles,
         diff: change.diff,
       };
@@ -141,10 +148,15 @@ export class Leanest {
     const ranked = this.policy.rank(evaluated);
     const runTests: TestCase[] = [];
     const skipTests: TestCase[] = [];
+    const reasons: Record<string, string> = {};
 
     for (const entry of ranked) {
-      const deterministicRun = this.deterministicRun(entry.test, change);
-      if (this.policy.decide(entry.probability, entry.confidence, deterministicRun) === "RUN") {
+      const deterministic = this.deterministicReason(entry.test, change);
+      reasons[entry.test.identity.path] =
+        deterministic ?? `judge p=${entry.probability.toFixed(2)} c=${entry.confidence.toFixed(2)}`;
+      if (
+        this.policy.decide(entry.probability, entry.confidence, deterministic !== null) === "RUN"
+      ) {
         runTests.push(entry.test);
       } else {
         skipTests.push(entry.test);
@@ -159,15 +171,18 @@ export class Leanest {
       selectedTests: runTests,
       skippedTests: skipTests.length,
       runTests,
+      skipped: skipTests,
+      reasons,
       changedFiles: change.changedFiles,
       diff: change.diff,
     };
   }
 
-  private deterministicRun(test: TestCase, change: GitChange): boolean {
-    if (change.changedFiles.includes(test.identity.path)) return true;
-    if (importsChangedFile(test, change.changedFiles, this.cwd)) return true;
-    return touchesSameRoute(test, change.changedFiles);
+  private deterministicReason(test: TestCase, change: GitChange): string | null {
+    if (change.changedFiles.includes(test.identity.path)) return "test file changed";
+    if (importsChangedFile(test, change.changedFiles, this.cwd)) return "imports a changed file";
+    if (touchesSameRoute(test, change.changedFiles)) return "touches a changed route";
+    return null;
   }
 
   private buildQuestions(tests: TestCase[], noChanges: boolean = false) {

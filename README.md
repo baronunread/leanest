@@ -64,9 +64,9 @@ Tests that are confidently irrelevant get skipped. Everything else runs through 
 
 ## Core Principles
 
-- **Fail open**: uncertainty means RUN. A missing API key, an API timeout, or a malformed response always falls back to running the full suite, loudly (`⚠ Jev unavailable (...), running the full suite.`).
+- **Fail open**: uncertainty means RUN. A missing API key, an API timeout, or a malformed response always falls back to running the full suite, loudly (`⚠ Judge unavailable (...), running the full suite.`). Finding no tests at all is an error (exit 1), not a silent pass.
 - **Deterministic overrides**: no threshold decides these, the judge isn't even asked. A test whose own file changed always runs, as does one that statically imports a changed file, or that navigates a route a changed file's own path names (e.g. `page.goto("/admin/users")` against a changed `routes/admin/users.tsx`) -- a heuristic that catches e2e route coupling no import graph can see, since a browser test never imports the page it drives.
-- **Leanest doesn't run tests itself**: it selects file paths and hands them to your actual runner (`playwright test <paths>`, `vitest run <paths>`). It leaves reporters, retries, sharding, and CI-required-check behavior alone.
+- **Leanest doesn't run tests itself**: it selects file paths and hands them to your actual runner (`playwright test <paths>`, `vitest run <paths>`). It leaves reporters, retries, sharding, and CI-required-check behavior alone. Anything after `--` goes straight to the runner: `leanest playwright -- --shard=1/3`.
 - **Static checks are out of scope on purpose**: lint/format/typecheck are already fast at full scope, and semantic per-rule selection would add latency for no real payoff. Leanest spends its Jev budget only on suites that are expensive to run in full: e2e today, more later.
 
 ## Adapters
@@ -124,7 +124,7 @@ npx leanest playwright --full
 
 ### Shadow mode
 
-Runs the full suite for real (it skips nothing), but logs what Leanest would have skipped, so you can build trust in the selection before turning it on:
+Runs every test for real (it skips nothing), in two batches: the selected tests, then the ones Leanest would have skipped. If the skipped batch fails, it prints `Shadow mode: MISS`, so after a few weeks you know how often selection alone would have let a failure through:
 
 ```bash
 npx leanest playwright --shadow
@@ -168,6 +168,8 @@ Leanest's selection judgment is pluggable. Pick a provider with `LEANEST_PROVIDE
 LEANEST_PROVIDER=jev npx leanest playwright
 ```
 
+**Where your code goes:** `classifier-dev` and `jev` send the diff and the source of each candidate test to an outside service (classifier.dev or TypeSafe). On a private repo, check that's acceptable first, or use `laya`, which runs in-process.
+
 ## CI Integration
 
 ### GitHub Actions
@@ -182,7 +184,9 @@ LEANEST_PROVIDER=jev npx leanest playwright
     framework: playwright
 ```
 
-This installs Bun, installs `leanest`, and replaces your existing "run e2e tests" step: same reporter output, same exit code, just fewer tests executed. No secret required — the default `classifier-dev` provider needs no API key, which also means forked-repo PRs can use it without access to your repo's secrets. Pass `provider: jev` and `typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}` to use Jev instead.
+This installs the `leanest` version matching the Action's ref with the runner's Node (it doesn't touch your Bun), and replaces your existing "run e2e tests" step: same reporter output, same exit code, just fewer tests executed. No secret required — the default `classifier-dev` provider needs no API key, which also means forked-repo PRs can use it without access to your repo's secrets. Pass `provider: jev` and `typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}` to use Jev instead.
+
+On pull requests it diffs against the PR's base branch; on push, against the previous commit. Override with `base:`. Pass runner flags with `args:`, for example `args: --shard=${{ matrix.shard }}/3`. Each run writes a job summary listing every test file, whether it ran, and why.
 
 ### Any other CI
 

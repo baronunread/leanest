@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-import { realpathSync } from "node:fs";
+import { appendFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Leanest } from "./leanest.js";
 import { SelectionPolicy } from "./selection-policy.js";
 import { runTests } from "./runner.js";
+import type { SelectionResult, TestCase } from "./types.js";
 
 export interface Flags {
   _: string[];
@@ -14,6 +15,8 @@ export interface Flags {
   full?: boolean;
   base?: string;
   dir?: string;
+  /** Everything after `--`, forwarded to the test runner as-is. */
+  passthrough?: string[];
   [key: string]: boolean | string | string[] | undefined;
 }
 
@@ -30,6 +33,7 @@ async function main(): Promise<number> {
   const full = flags.full === true;
   const cwd = flags.dir ?? ".";
   const base = flags.base;
+  const extra = flags.passthrough ?? [];
 
   const leanest = new Leanest(cwd, base);
 
@@ -64,7 +68,7 @@ async function main(): Promise<number> {
       }
 
       if (result.status === "error") {
-        console.error(`⚠ Jev unavailable (${result.error}), running the full suite.`);
+        console.error(`⚠ Judge unavailable (${result.error}), running the full suite.`);
       }
 
       if (json) {
@@ -72,17 +76,30 @@ async function main(): Promise<number> {
       } else {
         printSelect(result);
       }
+      writeStepSummary(command, result, shadow || full);
 
-      if (shadow) {
-        console.log(
-          `\nShadow mode: would run ${result.selectedTests.length} of ${result.totalTests} tests. Running full suite for real.`,
-        );
-        return await runTests(command, [], cwd);
+      const paths = result.selectedTests.map((t) => t.identity.path);
+      const skippedPaths = result.skipped.map((t) => t.identity.path);
+
+      if (shadow && skippedPaths.length > 0) {
+        // Run the two halves separately: a failure in the skipped half is exactly
+        // what selection alone would have missed.
+        console.log(`\nShadow mode: running ${paths.length} selected test file(s)...`);
+        const selectedCode = paths.length > 0 ? await runTests(command, paths, cwd, extra) : 0;
+        console.log(`\nShadow mode: running ${skippedPaths.length} skipped test file(s)...`);
+        const skippedCode = await runTests(command, skippedPaths, cwd, extra);
+        const verdict =
+          skippedCode === 0
+            ? "Shadow mode: skipped tests passed, selection missed nothing."
+            : "Shadow mode: MISS, skipped tests failed. Selection alone would have let this through.";
+        console.log(`\n${verdict}`);
+        appendStepSummary(`\n**${verdict}**\n`);
+        return selectedCode || skippedCode;
       }
 
-      if (full) {
-        console.log(`\nRunning the full suite (--full)...`);
-        return await runTests(command, [], cwd);
+      if (shadow || full) {
+        console.log(`\nRunning the full suite (${shadow ? "--shadow" : "--full"})...`);
+        return await runTests(command, [], cwd, extra);
       }
 
       if (result.selectedTests.length === 0) {
@@ -90,9 +107,8 @@ async function main(): Promise<number> {
         return 0;
       }
 
-      const paths = result.selectedTests.map((t) => t.identity.path);
       console.log(`\nRunning ${command} on ${paths.length} selected test file(s)...`);
-      return await runTests(command, paths, cwd);
+      return await runTests(command, paths, cwd, extra);
     }
     default: {
       console.error(`Unknown command: ${command}`);
@@ -108,6 +124,10 @@ export function parseFlags(args: string[]): Flags {
   const flags: Flags = { _: [] };
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
+    if (arg === "--") {
+      flags.passthrough = args.slice(i + 1);
+      break;
+    }
     if (arg?.startsWith("--")) {
       const key = arg.slice(2);
       const next = args[i + 1];
@@ -184,6 +204,27 @@ function printSelect(result: any): void {
   }
 }
 
+function appendStepSummary(markdown: string): void {
+  const file = process.env.GITHUB_STEP_SUMMARY;
+  if (file) appendFileSync(file, markdown);
+}
+
+function writeStepSummary(command: string, result: SelectionResult, runningAll: boolean): void {
+  const row = (t: TestCase, decision: string) =>
+    `| \`${t.identity.path}\` | ${decision} | ${result.reasons[t.identity.path] ?? ""} |`;
+  appendStepSummary(
+    [
+      `### leanest: ${result.selectedTests.length} of ${result.totalTests} ${command} test files selected`,
+      runningAll ? "\nThe full suite runs anyway (`--shadow` or `--full`).\n" : "",
+      "| Test | Decision | Reason |",
+      "| --- | --- | --- |",
+      ...result.selectedTests.map((t) => row(t, "RUN")),
+      ...result.skipped.map((t) => row(t, "SKIP")),
+      "",
+    ].join("\n"),
+  );
+}
+
 function printHelp(): void {
   console.log(`Usage: leanest <command> [options]
 
@@ -200,6 +241,7 @@ Options:
   --json                Output JSON
   --shadow              Run the full suite, but also log what would have been skipped
   --full                Skip selection, run the full suite
+  -- <args>             Pass the remaining args to the test runner (e.g. -- --shard=1/3)
   --help                Show this help
 
 Examples:
@@ -209,6 +251,7 @@ Examples:
   npx leanest playwright --changed --json
   npx leanest playwright --shadow
   npx leanest playwright --full
+  npx leanest playwright -- --shard=1/3
   npx leanest inspect playwright --dir /path/to/repo
   leanest vitest --dir ~/projects/my-app --changed
 `);
