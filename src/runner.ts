@@ -15,7 +15,9 @@ export function buildRunCommand(
   // ponytail: prefer the locally installed binary; fall back to npx for global/workspace installs
   const runner = existsSync(localBin) ? localBin : "npx";
   const args = existsSync(localBin) ? [] : [name];
-  return [runner, ...args, name === "vitest" ? "run" : "test", ...paths, ...extra];
+  // Discovery paths are relative to where leanest started; the runner runs inside cwd.
+  const local = paths.map((p) => path.relative(cwd, p));
+  return [runner, ...args, name === "vitest" ? "run" : "test", ...local, ...extra];
 }
 
 export async function runTests(
