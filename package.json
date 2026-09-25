@@ -1,6 +1,6 @@
 {
 	"name": "leanest",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"description": "Local-first test selector using semantic judgments (classifier.dev, Jev, or Laya) to determine which tests are affected by a code change",
 	"type": "module",
 	"main": "./src/index.ts",
