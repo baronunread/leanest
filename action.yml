@@ -10,9 +10,9 @@ inputs:
     required: true
     default: playwright
   base:
-    description: Base git ref to diff against
+    description: Base git ref to diff against (default - the PR base branch, or the previous commit on push)
     required: false
-    default: origin/${{ github.event.pull_request.base.ref }}
+    default: ""
   dir:
     description: Directory of the project under test
     required: false
@@ -24,22 +24,39 @@ inputs:
     description: Judge provider to select tests with (jev, classifier-dev, or laya)
     required: false
     default: classifier-dev
+  args:
+    description: Extra arguments passed to the test runner, e.g. --shard=1/3
+    required: false
+    default: ""
 
 runs:
   using: composite
   steps:
-    - name: Set up Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
-
+    # Install the leanest version matching this Action's ref, with the runner's own Node.
+    # No setup-bun: the CLI runs on plain Node, so the caller's Bun stays untouched.
     - name: Install leanest
       shell: bash
-      run: bun add -g leanest
+      run: npm install -g "leanest@$(node -p "require('$GITHUB_ACTION_PATH/package.json').version")"
 
     - name: Select and run affected tests
       shell: bash
       env:
         TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key }}
         LEANEST_PROVIDER: ${{ inputs.provider }}
-      run: leanest ${{ inputs.framework }} --base "${{ inputs.base }}" --dir "${{ inputs.dir }}"
+        FRAMEWORK: ${{ inputs.framework }}
+        BASE: ${{ inputs.base }}
+        DIR: ${{ inputs.dir }}
+        ARGS: ${{ inputs.args }}
+        PR_BASE: ${{ github.event.pull_request.base.ref }}
+        BEFORE: ${{ github.event.before }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      run: |
+        if [ -z "$BASE" ]; then
+          if [ -n "$PR_BASE" ]; then BASE="origin/$PR_BASE"
+          # A push that creates a branch has an all-zero "before" SHA.
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then BASE="$BEFORE"
+          else BASE="origin/$DEFAULT_BRANCH"
+          fi
+        fi
+        # ARGS is split on purpose so each runner flag becomes its own argument.
+        leanest "$FRAMEWORK" --base "$BASE" --dir "$DIR" -- $ARGS
