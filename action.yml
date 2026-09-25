@@ -1,4 +1,4 @@
-name: leanest
+name: leanest test selector
 description: Select and run only the tests affected by this PR's diff.
 branding:
   icon: filter

@@ -179,7 +179,7 @@ LEANEST_PROVIDER=jev npx leanest playwright
   with:
     fetch-depth: 0
 
-- uses: baronunread/leanest@v1
+- uses: baronunread/leanest@v0.2.6
   with:
     framework: playwright
 ```
