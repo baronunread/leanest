@@ -25,3 +25,27 @@ jobs:
           npm pack
           npm install -g ./leanest-*.tgz
           leanest --help | grep -q Usage
+
+  # Runs the Action from this checkout against a stub Playwright, so no browsers are needed.
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Change the fixture and stub Playwright
+        run: |
+          echo "// ci touch" >> fixtures/action/price.ts
+          git -c user.name=ci -c user.email=ci@localhost commit -qam "ci: touch fixture"
+          mkdir -p node_modules/.bin
+          printf '#!/bin/sh\necho "$*" >> "$RUNNER_TEMP/playwright-args"\n' > node_modules/.bin/playwright
+          chmod +x node_modules/.bin/playwright
+      - uses: ./
+        with:
+          framework: playwright
+          args: --shard=1/1
+      - name: Check the changed test ran with the passthrough args
+        run: |
+          cat "$RUNNER_TEMP/playwright-args"
+          grep -q "fixtures/action/price.pw.ts" "$RUNNER_TEMP/playwright-args"
+          grep -q -- "--shard=1/1" "$RUNNER_TEMP/playwright-args"
