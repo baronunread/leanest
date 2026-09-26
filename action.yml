@@ -28,6 +28,10 @@ inputs:
     description: Extra arguments passed to the test runner, e.g. --shard=1/3
     required: false
     default: ""
+  comment:
+    description: Post the selection report as a sticky PR comment (needs pull-requests - write)
+    required: false
+    default: "true"
 
 runs:
   using: composite
@@ -53,7 +57,9 @@ runs:
         PR_BASE: ${{ github.event.pull_request.base.ref }}
         BEFORE: ${{ github.event.before }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        LEANEST_REPORT_FILE: ${{ runner.temp }}/leanest-report.md
       run: |
+        : > "$LEANEST_REPORT_FILE"
         if [ -z "$BASE" ]; then
           if [ -n "$PR_BASE" ]; then BASE="origin/$PR_BASE"
           # A push that creates a branch has an all-zero "before" SHA.
@@ -63,3 +69,25 @@ runs:
         fi
         # ARGS is split on purpose so each runner flag becomes its own argument.
         leanest "$FRAMEWORK" --base "$BASE" --dir "$DIR" -- $ARGS
+
+    # Edits the comment starting with the report's first line (its marker), or posts a new one.
+    # Fails soft: fork PRs get a read-only token, and that must not fail the tests.
+    - name: Post the report as a PR comment
+      if: always() && inputs.comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+        REPORT: ${{ runner.temp }}/leanest-report.md
+      run: |
+        [ -s "$REPORT" ] || exit 0
+        export MARKER="$(head -n1 "$REPORT")"
+        ID="$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+          --jq '.[] | select(.body | startswith(env.MARKER)) | .id' | sed -n 1p)" &&
+        if [ -n "$ID" ]; then
+          gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$REPORT" >/dev/null
+        else
+          gh api "repos/$REPO/issues/$PR/comments" -F body=@"$REPORT" >/dev/null
+        fi ||
+        echo "::warning::leanest couldn't post its PR comment. The workflow needs 'pull-requests: write', and fork PRs only get a read-only token."

@@ -175,6 +175,11 @@ LEANEST_PROVIDER=jev npx leanest playwright
 ### GitHub Actions
 
 ```yaml
+permissions:
+  contents: read
+  pull-requests: write # for the report comment
+
+steps:
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0
@@ -186,7 +191,7 @@ LEANEST_PROVIDER=jev npx leanest playwright
 
 This installs the `leanest` version matching the Action's ref with the runner's Node (it doesn't touch your Bun), and replaces your existing "run e2e tests" step: same reporter output, same exit code, just fewer tests executed. No secret required — the default `classifier-dev` provider needs no API key, which also means forked-repo PRs can use it without access to your repo's secrets. Pass `provider: jev` and `typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}` to use Jev instead.
 
-On pull requests it diffs against the PR's base branch; on push, against the previous commit. Override with `base:`. Pass runner flags with `args:`, for example `args: --shard=${{ matrix.shard }}/3`. Each run writes a job summary listing every test file, whether it ran, and why.
+On pull requests it diffs against the PR's base branch; on push, against the previous commit. Override with `base:`. Pass runner flags with `args:`, for example `args: --shard=${{ matrix.shard }}/3`. Each run writes a job summary listing every test file, whether it ran, and why. On pull requests it also posts that report as a PR comment and edits the same comment on later pushes. Turn it off with `comment: false`. Without `pull-requests: write`, and on fork PRs (which get a read-only token), posting logs a warning and the tests' result stands.
 
 ### Any other CI
 
