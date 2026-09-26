@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { SelectionPolicy } from "./selection-policy.js";
+import { SelectionPolicy, suiteRule } from "./selection-policy.js";
 
 describe("SelectionPolicy.decide", () => {
   const policy = new SelectionPolicy();
@@ -23,5 +23,35 @@ describe("SelectionPolicy.decide", () => {
   test("fails open on missing probability or confidence", () => {
     expect(policy.decide(undefined, 0.9, false)).toBe("RUN");
     expect(policy.decide(0.1, undefined, false)).toBe("RUN");
+  });
+});
+
+describe("suiteRule", () => {
+  test("runs everything when the runner's setup changed", () => {
+    for (const f of [
+      "playwright.config.ts",
+      "apps/web/vitest.config.mts",
+      "package.json",
+      "bun.lock",
+      ".github/workflows/test.yml",
+    ]) {
+      expect(suiteRule(["src/a.ts", f])?.decision).toBe("RUN");
+    }
+  });
+
+  test("skips everything when only Markdown changed", () => {
+    expect(suiteRule(["AGENTS.md", "docs/guide.md"])).toEqual({
+      decision: "SKIP",
+      reason: "only Markdown changed",
+    });
+  });
+
+  test("asks per test otherwise, and on no changes", () => {
+    expect(suiteRule(["README.md", "src/a.ts"])).toBeNull();
+    expect(suiteRule([])).toBeNull();
+  });
+
+  test("runner config wins over Markdown", () => {
+    expect(suiteRule(["README.md", ".github/workflows/test.yml"])?.decision).toBe("RUN");
   });
 });

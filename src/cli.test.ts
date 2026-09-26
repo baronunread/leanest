@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseFlags, renderReport, reportMarker } from "./cli.js";
+import { explainRuns, parseFlags, renderReport, reportMarker } from "./cli.js";
 import type { SelectionResult, TestCase } from "./types.js";
 
 describe("parseFlags", () => {
@@ -84,6 +84,13 @@ describe("renderReport", () => {
     expect(md).toContain("> [!WARNING]");
     expect(md).toContain("> Reason: `classifier.dev error (503): upstream timeout`");
     expect(md).toContain("<details><summary>2 test files, all RUN</summary>");
+  });
+
+  test("says why the selected tests run, in the comment too", () => {
+    const r = result({ runBreakdown: { rule: 1, judgeUnsure: 30, judgeLikely: 0 } });
+    expect(explainRuns(r)).toBe("Why they run: 1 by rule, 30 judge unsure (c < 0.5).");
+    expect(renderReport("playwright", ".", r, false)).toContain("Why they run: 1 by rule");
+    expect(explainRuns(result({ selectedTests: [] }))).toBeNull();
   });
 
   test("marker differs per framework and dir, so each run keeps its own comment", () => {
