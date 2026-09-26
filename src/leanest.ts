@@ -134,7 +134,7 @@ export class Leanest {
         runTests: run,
         skipped: rule.decision === "SKIP" ? tests : [],
         reasons: Object.fromEntries(tests.map((t) => [t.identity.path, rule.reason])),
-        runBreakdown: { rule: run.length, judgeUnsure: 0, judgeLikely: 0 },
+        suiteReason: rule.reason,
         changedFiles: change.changedFiles,
         diff: change.diff,
       };

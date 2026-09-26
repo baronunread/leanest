@@ -45,6 +45,8 @@ export interface SelectionResult {
   reasons: Record<string, string>;
   /** Why the selected tests run: forced by a rule, the judge too unsure to skip, or judged affected. */
   runBreakdown?: { rule: number; judgeUnsure: number; judgeLikely: number };
+  /** Set when a whole-suite rule decided every test, e.g. "only Markdown changed". */
+  suiteReason?: string;
   decision?: string;
   changedFiles: string[];
   diff: string;

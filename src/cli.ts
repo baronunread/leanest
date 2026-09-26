@@ -3,7 +3,7 @@
 import { appendFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Leanest } from "./leanest.js";
-import { MIN_CONFIDENCE, SelectionPolicy } from "./selection-policy.js";
+import { SelectionPolicy } from "./selection-policy.js";
 import { runTests } from "./runner.js";
 import type { SelectionResult, TestCase } from "./types.js";
 
@@ -187,16 +187,26 @@ function printInspect(result: any): void {
   console.log(`\nSkipping ${result.skipped} tests.`);
 }
 
-/** One line on why the selected tests run, or null when there's nothing to explain. */
+/** One sentence on why the selected tests run, or null when there's nothing to explain. */
 export function explainRuns(result: SelectionResult): string | null {
+  const n = result.selectedTests.length;
+  if (n === 0) return null;
+  // The only whole-suite rule that runs tests is "runner setup changed (…)".
+  if (result.suiteReason) {
+    return `${n === 1 ? "The only test runs" : `All ${n} run`} because the ${result.suiteReason}.`;
+  }
   const b = result.runBreakdown;
-  if (!b || result.selectedTests.length === 0) return null;
+  if (!b) return null;
   const parts = [
-    b.rule > 0 ? `${b.rule} by rule` : "",
-    b.judgeUnsure > 0 ? `${b.judgeUnsure} judge unsure (c < ${MIN_CONFIDENCE})` : "",
-    b.judgeLikely > 0 ? `${b.judgeLikely} judged affected` : "",
+    b.rule > 0 ? `${b.rule} ${b.rule === 1 ? "touches" : "touch"} the change directly` : "",
+    b.judgeUnsure > 0 ? `the judge wasn't sure enough to skip ${b.judgeUnsure}` : "",
+    b.judgeLikely > 0
+      ? `${b.judgeUnsure > 0 ? "it" : "the judge"} thinks ${b.judgeLikely === 1 ? "1 is" : `${b.judgeLikely} are`} affected`
+      : "",
   ].filter(Boolean);
-  return `Why they run: ${parts.join(", ")}.`;
+  const sentence =
+    parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0]!;
+  return `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`;
 }
 
 function printList(lines: string[]): void {
@@ -218,14 +228,21 @@ function printSelect(result: SelectionResult): void {
   console.log(`\nSelected ${result.selectedTests.length} / ${result.totalTests} tests`);
   const why = explainRuns(result);
   if (why) console.log(why);
+  // A whole-suite rule already said why in one line; don't repeat it per test.
   printList(
-    result.selectedTests.map((t) => `RUN ${t.identity.path}  (${result.reasons[t.identity.path]})`),
+    result.selectedTests.map((t) =>
+      result.suiteReason
+        ? `RUN ${t.identity.path}`
+        : `RUN ${t.identity.path}  (${result.reasons[t.identity.path]})`,
+    ),
   );
   if (result.skippedTests > 0) {
-    const reasons = new Set(result.skipped.map((t) => result.reasons[t.identity.path]));
-    // A suite rule gives every skip the same reason; say it once.
-    const shared = reasons.size === 1 ? ` (${[...reasons][0]})` : "";
-    console.log(`\nSkipping ${result.skippedTests} tests.${shared}`);
+    const n = result.skippedTests;
+    console.log(
+      result.suiteReason
+        ? `\nSkipping all ${n} tests: ${result.suiteReason}.`
+        : `\nSkipping ${n} tests.`,
+    );
   }
 }
 

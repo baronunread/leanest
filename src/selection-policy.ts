@@ -19,7 +19,7 @@ export function suiteRule(
   changedFiles: string[],
 ): { decision: "RUN" | "SKIP"; reason: string } | null {
   const config = changedFiles.find((f) => RUNNER_CONFIG.some((re) => re.test(f)));
-  if (config) return { decision: "RUN", reason: `runner config changed: ${config}` };
+  if (config) return { decision: "RUN", reason: `runner setup changed (${config})` };
   if (changedFiles.length > 0 && changedFiles.every((f) => f.endsWith(".md"))) {
     return { decision: "SKIP", reason: "only Markdown changed" };
   }

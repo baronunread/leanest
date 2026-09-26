@@ -103,11 +103,20 @@ describe("renderReport", () => {
     expect(md).toContain("| `a\\|b.spec.ts` | RUN | judge unavailable retry |");
   });
 
-  test("says why the selected tests run, in the comment too", () => {
-    const r = result({ runBreakdown: { rule: 1, judgeUnsure: 30, judgeLikely: 0 } });
-    expect(explainRuns(r)).toBe("Why they run: 1 by rule, 30 judge unsure (c < 0.5).");
-    expect(renderReport("playwright", ".", r, false)).toContain("Why they run: 1 by rule");
+  test("says why the selected tests run, in plain words, in the comment too", () => {
+    const why = (rule: number, judgeUnsure: number, judgeLikely: number) =>
+      explainRuns(result({ runBreakdown: { rule, judgeUnsure, judgeLikely } }));
+    expect(why(2, 9, 1)).toBe(
+      "2 touch the change directly, the judge wasn't sure enough to skip 9 and it thinks 1 is affected.",
+    );
+    expect(why(0, 37, 0)).toBe("The judge wasn't sure enough to skip 37.");
+    expect(why(1, 0, 3)).toBe("1 touches the change directly and the judge thinks 3 are affected.");
+    expect(explainRuns(result({ suiteReason: "runner setup changed (package.json)" }))).toBe(
+      "The only test runs because the runner setup changed (package.json).",
+    );
     expect(explainRuns(result({ selectedTests: [] }))).toBeNull();
+    const r = result({ runBreakdown: { rule: 1, judgeUnsure: 0, judgeLikely: 0 } });
+    expect(renderReport("playwright", ".", r, false)).toContain("1 touches the change directly.");
   });
 
   test("marker differs per framework and dir, so each run keeps its own comment", () => {
