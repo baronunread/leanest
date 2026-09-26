@@ -3,7 +3,7 @@
 import { appendFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Leanest } from "./leanest.js";
-import { SelectionPolicy } from "./selection-policy.js";
+import { MIN_CONFIDENCE, SelectionPolicy } from "./selection-policy.js";
 import { runTests } from "./runner.js";
 import type { SelectionResult, TestCase } from "./types.js";
 
@@ -165,6 +165,11 @@ function printInspect(result: any): void {
   }
   console.log(`Discovering ${discovered.framework} tests...`);
   console.log(`  ${discovered.count} tests found`);
+  if (result.error) {
+    console.log(
+      `\n⚠ Judge unavailable (${result.error}), all ${discovered.count} tests would run.`,
+    );
+  }
   if (result.evaluated.length > 0) {
     console.log(`\nEvaluating semantic impact...`);
     console.log(`  ${result.evaluated.length} tests evaluated`);
@@ -182,25 +187,45 @@ function printInspect(result: any): void {
   console.log(`\nSkipping ${result.skipped} tests.`);
 }
 
-function printSelect(result: any): void {
+/** One line on why the selected tests run, or null when there's nothing to explain. */
+export function explainRuns(result: SelectionResult): string | null {
+  const b = result.runBreakdown;
+  if (!b || result.selectedTests.length === 0) return null;
+  const parts = [
+    b.rule > 0 ? `${b.rule} by rule` : "",
+    b.judgeUnsure > 0 ? `${b.judgeUnsure} judge unsure (c < ${MIN_CONFIDENCE})` : "",
+    b.judgeLikely > 0 ? `${b.judgeLikely} judged affected` : "",
+  ].filter(Boolean);
+  return `Why they run: ${parts.join(", ")}.`;
+}
+
+function printList(lines: string[]): void {
+  for (const line of lines.slice(0, 20)) console.log(`  ${line}`);
+  if (lines.length > 20) console.log(`  ... and ${lines.length - 20} more`);
+}
+
+function printSelect(result: SelectionResult): void {
   const noChanges = result.changedFiles.length === 0;
   if (noChanges && result.totalTests > 0) {
     console.log(`No changes detected.`);
     console.log(`Evaluating all ${result.totalTests} tests conservatively...\n`);
   } else {
     console.log(`Changed:`);
-    for (const f of result.changedFiles.slice(0, 20)) {
-      console.log(`  ${f}`);
-    }
+    printList(result.changedFiles);
     console.log(``);
   }
   console.log(`${result.totalTests} tests found`);
   console.log(`\nSelected ${result.selectedTests.length} / ${result.totalTests} tests`);
-  for (const test of result.selectedTests.slice(0, 20)) {
-    console.log(`  RUN ${test.identity.path}`);
-  }
+  const why = explainRuns(result);
+  if (why) console.log(why);
+  printList(
+    result.selectedTests.map((t) => `RUN ${t.identity.path}  (${result.reasons[t.identity.path]})`),
+  );
   if (result.skippedTests > 0) {
-    console.log(`\nSkipping ${result.skippedTests} tests.`);
+    const reasons = new Set(result.skipped.map((t) => result.reasons[t.identity.path]));
+    // A suite rule gives every skip the same reason; say it once.
+    const shared = reasons.size === 1 ? ` (${[...reasons][0]})` : "";
+    console.log(`\nSkipping ${result.skippedTests} tests.${shared}`);
   }
 }
 
@@ -234,6 +259,7 @@ export function renderReport(
       : [`<details><summary>${summary}</summary>`, "", ...table(rows), "", "</details>", ""];
   const runRows = result.selectedTests.map((t) => row(t, "RUN"));
   const skipRows = result.skipped.map((t) => row(t, "SKIP"));
+  const why = explainRuns(result);
 
   if (result.status === "error") {
     return [
@@ -254,6 +280,7 @@ export function renderReport(
     reportMarker(command, dir),
     `### leanest: ${result.selectedTests.length} of ${result.totalTests} ${command} test files selected`,
     "",
+    ...(why ? [why, ""] : []),
     ...(runningAll ? ["The full suite runs anyway (`--shadow` or `--full`).", ""] : []),
     ...(runRows.length > 0 ? [...table(runRows), ""] : []),
     ...details(`${skipRows.length} skipped`, skipRows),

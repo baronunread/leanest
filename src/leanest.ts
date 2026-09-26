@@ -6,7 +6,7 @@ import {
 import { ChangeResolver, type GitChange } from "./git-diff.js";
 import { TestDiscovery } from "./test-discovery.js";
 import { ContextBuilder } from "./context-builder.js";
-import { SelectionPolicy } from "./selection-policy.js";
+import { MIN_CONFIDENCE, SelectionPolicy, suiteRule } from "./selection-policy.js";
 import { importsChangedFile } from "./import-graph.js";
 import { touchesSameRoute } from "./route-heuristic.js";
 import type { TestCase, SelectionResult, PipelineResult } from "./types.js";
@@ -58,14 +58,15 @@ export class Leanest {
     let answers: Record<string, { probability: number; confidence: number }>;
     try {
       answers = await this.judge.evaluate(state, questions);
-    } catch {
+    } catch (error) {
       return {
         change,
         discovered: { framework, count: discovery.tests.length, tests: discovery.tests },
         evaluated: [],
-        selected: [],
+        selected: discovery.tests,
         skipped: 0,
         decision: "RUN",
+        error: error instanceof Error ? error.message : String(error),
       };
     }
 
@@ -120,6 +121,25 @@ export class Leanest {
       };
     }
 
+    const rule = suiteRule(change.changedFiles);
+    if (rule) {
+      const run = rule.decision === "RUN" ? tests : [];
+      return {
+        command: "select",
+        args: [framework],
+        status: "complete",
+        totalTests: tests.length,
+        selectedTests: run,
+        skippedTests: tests.length - run.length,
+        runTests: run,
+        skipped: rule.decision === "SKIP" ? tests : [],
+        reasons: Object.fromEntries(tests.map((t) => [t.identity.path, rule.reason])),
+        runBreakdown: { rule: run.length, judgeUnsure: 0, judgeLikely: 0 },
+        changedFiles: change.changedFiles,
+        diff: change.diff,
+      };
+    }
+
     const state = this.context.buildState(change, tests);
     const questions = this.buildQuestions(tests, change.changedFiles.length === 0);
     let answers: Record<string, { probability: number; confidence: number }>;
@@ -155,6 +175,7 @@ export class Leanest {
     const runTests: TestCase[] = [];
     const skipTests: TestCase[] = [];
     const reasons: Record<string, string> = {};
+    const runBreakdown = { rule: 0, judgeUnsure: 0, judgeLikely: 0 };
 
     for (const entry of ranked) {
       const deterministic = this.deterministicReason(entry.test, change);
@@ -164,6 +185,9 @@ export class Leanest {
         this.policy.decide(entry.probability, entry.confidence, deterministic !== null) === "RUN"
       ) {
         runTests.push(entry.test);
+        if (deterministic) runBreakdown.rule++;
+        else if (entry.confidence < MIN_CONFIDENCE) runBreakdown.judgeUnsure++;
+        else runBreakdown.judgeLikely++;
       } else {
         skipTests.push(entry.test);
       }
@@ -179,6 +203,7 @@ export class Leanest {
       runTests,
       skipped: skipTests,
       reasons,
+      runBreakdown,
       changedFiles: change.changedFiles,
       diff: change.diff,
     };
