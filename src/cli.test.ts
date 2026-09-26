@@ -115,6 +115,15 @@ describe("renderReport", () => {
       "The only test runs because the runner setup changed (package.json).",
     );
     expect(explainRuns(result({ selectedTests: [] }))).toBeNull();
+    const suite = renderReport(
+      "playwright",
+      ".",
+      result({ suiteReason: "runner setup changed (package.json)" }),
+      false,
+    );
+    expect(suite.indexOf("<details><summary>1 test file</summary>")).toBeLessThan(
+      suite.indexOf("| `a.spec.ts` | RUN |"),
+    );
     const r = result({ runBreakdown: { rule: 1, judgeUnsure: 0, judgeLikely: 0 } });
     expect(renderReport("playwright", ".", r, false)).toContain("1 touches the change directly.");
   });

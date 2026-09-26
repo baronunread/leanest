@@ -304,7 +304,12 @@ export function renderReport(
     "",
     ...(why ? [why, ""] : []),
     ...(runningAll ? ["The full suite runs anyway (`--shadow` or `--full`).", ""] : []),
-    ...(runRows.length > 0 ? [...table(runRows), ""] : []),
+    // A whole-suite rule gives every row the same reason, already said above: fold them.
+    ...(result.suiteReason
+      ? details(`${runRows.length} test file${runRows.length === 1 ? "" : "s"}`, runRows)
+      : runRows.length > 0
+        ? [...table(runRows), ""]
+        : []),
     ...details(`${skipRows.length} skipped`, skipRows),
   ].join("\n");
 }
