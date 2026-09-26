@@ -76,7 +76,7 @@ async function main(): Promise<number> {
       } else {
         printSelect(result);
       }
-      writeStepSummary(command, result, shadow || full);
+      appendReport(renderReport(command, result, shadow || full));
 
       const paths = result.selectedTests.map((t) => t.identity.path);
       const skippedPaths = result.skipped.map((t) => t.identity.path);
@@ -93,7 +93,7 @@ async function main(): Promise<number> {
             ? "Shadow mode: skipped tests passed, selection missed nothing."
             : "Shadow mode: MISS, skipped tests failed. Selection alone would have let this through.";
         console.log(`\n${verdict}`);
-        appendStepSummary(`\n**${verdict}**\n`);
+        appendReport(`\n**${verdict}**\n`);
         return selectedCode || skippedCode;
       }
 
@@ -204,25 +204,58 @@ function printSelect(result: any): void {
   }
 }
 
-function appendStepSummary(markdown: string): void {
-  const file = process.env.GITHUB_STEP_SUMMARY;
-  if (file) appendFileSync(file, markdown);
+// Written to the job summary, and to LEANEST_REPORT_FILE for the Action's PR comment.
+function appendReport(markdown: string): void {
+  for (const file of [process.env.GITHUB_STEP_SUMMARY, process.env.LEANEST_REPORT_FILE]) {
+    if (file) appendFileSync(file, markdown);
+  }
 }
 
-function writeStepSummary(command: string, result: SelectionResult, runningAll: boolean): void {
+/** The Action finds its sticky PR comment by this marker. */
+export const REPORT_MARKER = "<!-- leanest-report -->";
+
+export function renderReport(
+  command: string,
+  result: SelectionResult,
+  runningAll: boolean,
+): string {
   const row = (t: TestCase, decision: string) =>
     `| \`${t.identity.path}\` | ${decision} | ${result.reasons[t.identity.path] ?? ""} |`;
-  appendStepSummary(
-    [
-      `### leanest: ${result.selectedTests.length} of ${result.totalTests} ${command} test files selected`,
-      runningAll ? "\nThe full suite runs anyway (`--shadow` or `--full`).\n" : "",
-      "| Test | Decision | Reason |",
-      "| --- | --- | --- |",
-      ...result.selectedTests.map((t) => row(t, "RUN")),
-      ...result.skipped.map((t) => row(t, "SKIP")),
+  const table = (rows: string[]) => [
+    "| Test | Decision | Reason |",
+    "| --- | --- | --- |",
+    ...rows,
+  ];
+  const details = (summary: string, rows: string[]) =>
+    rows.length === 0
+      ? []
+      : [`<details><summary>${summary}</summary>`, "", ...table(rows), "", "</details>", ""];
+  const runRows = result.selectedTests.map((t) => row(t, "RUN"));
+  const skipRows = result.skipped.map((t) => row(t, "SKIP"));
+
+  if (result.status === "error") {
+    return [
+      REPORT_MARKER,
+      `### leanest: all ${result.totalTests} ${command} test files run`,
       "",
-    ].join("\n"),
-  );
+      "> [!WARNING]",
+      "> **The judge was unavailable, so leanest couldn't select tests and ran the full suite instead.**",
+      `> Reason: \`${result.error}\``,
+      ">",
+      "> Nothing was skipped, so this run is as safe as not using leanest. The next run tries the judge again.",
+      "",
+      ...details(`${result.totalTests} test files, all RUN`, runRows),
+    ].join("\n");
+  }
+
+  return [
+    REPORT_MARKER,
+    `### leanest: ${result.selectedTests.length} of ${result.totalTests} ${command} test files selected`,
+    "",
+    ...(runningAll ? ["The full suite runs anyway (`--shadow` or `--full`).", ""] : []),
+    ...(runRows.length > 0 ? [...table(runRows), ""] : []),
+    ...details(`${skipRows.length} skipped`, skipRows),
+  ].join("\n");
 }
 
 function printHelp(): void {

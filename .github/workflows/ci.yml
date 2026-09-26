@@ -29,6 +29,10 @@ jobs:
   # Runs the Action from this checkout against a stub Playwright, so no browsers are needed.
   action:
     runs-on: ubuntu-latest
+    # Lets the Action post its sticky report comment on this repo's own PRs.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,3 +64,4 @@ jobs:
           cat "$RUNNER_TEMP/playwright-args"
           grep -q "fixtures/action/price.pw.ts" "$RUNNER_TEMP/playwright-args"
           grep -q -- "--shard=1/1" "$RUNNER_TEMP/playwright-args"
+          grep -q "leanest-report" "$RUNNER_TEMP/leanest-report.md"
