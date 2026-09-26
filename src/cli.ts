@@ -76,7 +76,7 @@ async function main(): Promise<number> {
       } else {
         printSelect(result);
       }
-      appendReport(renderReport(command, result, shadow || full));
+      appendReport(renderReport(command, cwd, result, shadow || full));
 
       const paths = result.selectedTests.map((t) => t.identity.path);
       const skippedPaths = result.skipped.map((t) => t.identity.path);
@@ -211,11 +211,13 @@ function appendReport(markdown: string): void {
   }
 }
 
-/** The Action finds its sticky PR comment by this marker. */
-export const REPORT_MARKER = "<!-- leanest-report -->";
+/** The Action finds its sticky PR comment by this first line: one comment per framework and dir. */
+export const reportMarker = (command: string, dir: string) =>
+  `<!-- leanest-report ${command} ${dir} -->`;
 
 export function renderReport(
   command: string,
+  dir: string,
   result: SelectionResult,
   runningAll: boolean,
 ): string {
@@ -235,7 +237,7 @@ export function renderReport(
 
   if (result.status === "error") {
     return [
-      REPORT_MARKER,
+      reportMarker(command, dir),
       `### leanest: all ${result.totalTests} ${command} test files run`,
       "",
       "> [!WARNING]",
@@ -249,7 +251,7 @@ export function renderReport(
   }
 
   return [
-    REPORT_MARKER,
+    reportMarker(command, dir),
     `### leanest: ${result.selectedTests.length} of ${result.totalTests} ${command} test files selected`,
     "",
     ...(runningAll ? ["The full suite runs anyway (`--shadow` or `--full`).", ""] : []),

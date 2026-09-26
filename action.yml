@@ -70,7 +70,7 @@ runs:
         # ARGS is split on purpose so each runner flag becomes its own argument.
         leanest "$FRAMEWORK" --base "$BASE" --dir "$DIR" -- $ARGS
 
-    # Edits the comment carrying the report's marker, or posts a new one.
+    # Edits the comment starting with the report's first line (its marker), or posts a new one.
     # Fails soft: fork PRs get a read-only token, and that must not fail the tests.
     - name: Post the report as a PR comment
       if: always() && inputs.comment == 'true' && github.event_name == 'pull_request'
@@ -82,8 +82,9 @@ runs:
         REPORT: ${{ runner.temp }}/leanest-report.md
       run: |
         [ -s "$REPORT" ] || exit 0
+        export MARKER="$(head -n1 "$REPORT")"
         ID="$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
-          --jq '.[] | select(.body | startswith("<!-- leanest-report -->")) | .id' | sed -n 1p)" &&
+          --jq '.[] | select(.body | startswith(env.MARKER)) | .id' | sed -n 1p)" &&
         if [ -n "$ID" ]; then
           gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$REPORT" >/dev/null
         else

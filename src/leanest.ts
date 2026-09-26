@@ -22,7 +22,13 @@ export class Leanest {
 
   constructor(cwd?: string, baseRef?: string) {
     this.cwd = cwd ?? ".";
-    this.judge = getProvider();
+    // A bad provider name fails at evaluate(), so it gets the same full-suite fallback
+    // as any other judge failure instead of crashing before a report is written.
+    try {
+      this.judge = getProvider();
+    } catch (error) {
+      this.judge = { name: "unavailable", evaluate: () => Promise.reject(error) };
+    }
     this.git = new ChangeResolver(baseRef, this.cwd);
     this.discovery = new TestDiscovery();
     this.context = new ContextBuilder();
