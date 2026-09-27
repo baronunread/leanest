@@ -64,5 +64,6 @@ export interface PipelineResult {
   skipped: number;
   decision: "RUN" | "SKIP";
   /** Set when the judge failed; every test is then selected. */
-  error?: string;
+  error?: string /** Set when a whole-suite rule decided instead of the judge. */;
+  suiteReason?: string;
 }

@@ -53,6 +53,19 @@ export class Leanest {
       };
     }
 
+    const suite = this.suiteDecision(discovery.tests, change);
+    if (suite) {
+      return {
+        change,
+        discovered: { framework, count: discovery.tests.length, tests: discovery.tests },
+        evaluated: [],
+        selected: suite.run,
+        skipped: suite.skip.length,
+        decision: "RUN",
+        suiteReason: suite.rule.reason,
+      };
+    }
+
     const state = this.context.buildState(change, discovery.tests);
     const questions = this.buildQuestions(discovery.tests, change.changedFiles.length === 0);
     let answers: Record<string, { probability: number; confidence: number }>;
@@ -121,20 +134,20 @@ export class Leanest {
       };
     }
 
-    const rule = suiteRule(change.changedFiles);
-    if (rule) {
-      const run = rule.decision === "RUN" ? tests : [];
+    const suite = this.suiteDecision(tests, change);
+    if (suite) {
       return {
         command: "select",
         args: [framework],
         status: "complete",
         totalTests: tests.length,
-        selectedTests: run,
-        skippedTests: tests.length - run.length,
-        runTests: run,
-        skipped: rule.decision === "SKIP" ? tests : [],
-        reasons: Object.fromEntries(tests.map((t) => [t.identity.path, rule.reason])),
-        suiteReason: rule.reason,
+        selectedTests: suite.run,
+        skippedTests: suite.skip.length,
+        runTests: suite.run,
+        skipped: suite.skip,
+        reasons: suite.reasons,
+        suiteReason: suite.sharedReason,
+        runBreakdown: { rule: suite.run.length, judgeUnsure: 0, judgeLikely: 0 },
         changedFiles: change.changedFiles,
         diff: change.diff,
       };
@@ -207,6 +220,26 @@ export class Leanest {
       changedFiles: change.changedFiles,
       diff: change.diff,
     };
+  }
+
+  /**
+   * A whole-suite rule's outcome, or null to ask the judge. A Markdown-only change still runs
+   * the tests a deterministic rule forces, e.g. one that imports the changed .md file.
+   */
+  private suiteDecision(tests: TestCase[], change: GitChange) {
+    const rule = suiteRule(change.changedFiles);
+    if (!rule) return null;
+    const run: TestCase[] = [];
+    const skip: TestCase[] = [];
+    const reasons: Record<string, string> = {};
+    for (const test of tests) {
+      const forced = rule.decision === "SKIP" ? this.deterministicReason(test, change) : null;
+      reasons[test.identity.path] = forced ?? rule.reason;
+      (rule.decision === "RUN" || forced ? run : skip).push(test);
+    }
+    // Only when the rule decided every test does its reason explain the whole selection.
+    const sharedReason = rule.decision === "RUN" || run.length === 0 ? rule.reason : undefined;
+    return { rule, run, skip, reasons, sharedReason };
   }
 
   private deterministicReason(test: TestCase, change: GitChange): string | null {

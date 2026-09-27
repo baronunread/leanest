@@ -170,6 +170,10 @@ function printInspect(result: any): void {
       `\n⚠ Judge unavailable (${result.error}), all ${discovered.count} tests would run.`,
     );
   }
+  if (result.suiteReason) {
+    console.log(`\nNo judge needed: ${result.suiteReason}.`);
+    console.log(`Selected ${result.selected.length} / ${discovered.count} tests`);
+  }
   if (result.evaluated.length > 0) {
     console.log(`\nEvaluating semantic impact...`);
     console.log(`  ${result.evaluated.length} tests evaluated`);
@@ -298,7 +302,8 @@ export function renderReport(
     reportMarker(command, dir),
     `### leanest: ${result.selectedTests.length} of ${result.totalTests} ${command} test files selected`,
     "",
-    ...(why ? [why, ""] : []),
+    // Under --shadow/--full everything runs, so "Nothing runs because…" would contradict it.
+    ...(why && !runningAll ? [why, ""] : []),
     ...(runningAll ? ["The full suite runs anyway (`--shadow` or `--full`).", ""] : []),
     // A whole-suite rule gives every row the same reason, already said above: fold them.
     ...(result.suiteReason
