@@ -115,6 +115,9 @@ describe("renderReport", () => {
       "The only test runs because the runner setup changed (package.json).",
     );
     expect(explainRuns(result({ selectedTests: [] }))).toBeNull();
+    expect(explainRuns(result({ selectedTests: [], suiteReason: "only Markdown changed" }))).toBe(
+      "Nothing runs because only Markdown changed.",
+    );
     const suite = renderReport(
       "playwright",
       ".",

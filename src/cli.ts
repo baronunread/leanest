@@ -190,8 +190,8 @@ function printInspect(result: any): void {
 /** One sentence on why the selected tests run, or null when there's nothing to explain. */
 export function explainRuns(result: SelectionResult): string | null {
   const n = result.selectedTests.length;
-  if (n === 0) return null;
-  // The only whole-suite rule that runs tests is "runner setup changed (…)".
+  // Whole-suite rules: "only Markdown changed" skips all, "runner setup changed (…)" runs all.
+  if (n === 0) return result.suiteReason ? `Nothing runs because ${result.suiteReason}.` : null;
   if (result.suiteReason) {
     return `${n === 1 ? "The only test runs" : `All ${n} run`} because the ${result.suiteReason}.`;
   }
@@ -238,11 +238,7 @@ function printSelect(result: SelectionResult): void {
   );
   if (result.skippedTests > 0) {
     const n = result.skippedTests;
-    console.log(
-      result.suiteReason
-        ? `\nSkipping all ${n} tests: ${result.suiteReason}.`
-        : `\nSkipping ${n} tests.`,
-    );
+    console.log(`\nSkipping ${n} tests.`);
   }
 }
 
