@@ -45,8 +45,9 @@ Leanest
    |
    +-- Change resolver     (git diff)
    +-- Test discovery      (respects the framework's own config, e.g. playwright.config.ts testDir)
-   +-- Context builder     (packages the diff + each test's source for Jev)
-   +-- Jev evaluator       (one semantic judgment per test, in parallel)
+   +-- Whole-suite rules   (runner setup changed: run all; only Markdown changed: skip all)
+   +-- Context builder     (packages the diff + each test's source for the judge)
+   +-- Judge               (classifier.dev by default: one semantic judgment per test)
    +-- Selection policy    (RUN / SKIP, fail-open on low confidence)
    |
    v
@@ -65,10 +66,10 @@ Tests that are confidently irrelevant get skipped. Everything else runs through 
 ## Core Principles
 
 - **Fail open**: uncertainty means RUN. A missing API key, an API timeout, or a malformed response always falls back to running the full suite, loudly (`⚠ Judge unavailable (...), running the full suite.`). Finding no tests at all is an error (exit 1), not a silent pass.
-- **Deterministic overrides**: no threshold decides these, the judge isn't even asked. A test whose own file changed always runs, as does one that statically imports a changed file, or that navigates a route a changed file's own path names (e.g. `page.goto("/admin/users")` against a changed `routes/admin/users.tsx`) -- a heuristic that catches e2e route coupling no import graph can see, since a browser test never imports the page it drives.
-- **Whole-suite rules**: before any per-test decision, a change to the runner's own setup (`playwright.config.*`, `vitest.config.*`, `vite.config.*`, `package.json`, a lockfile, or anything in `.github/workflows/`) runs every test, and a change that only touches Markdown files skips every test. Neither asks the judge, so every shard of a matrix gets the same answer.
+- **Deterministic overrides**: whatever the judge says, these run. A test whose own file changed always runs, as does one that statically imports a changed file, or that navigates a route a changed file's own path names (e.g. `page.goto("/admin/users")` against a changed `routes/admin/users.tsx`) -- a heuristic that catches e2e route coupling no import graph can see, since a browser test never imports the page it drives.
+- **Whole-suite rules**: before any per-test decision, a change to the runner's own setup (`playwright.config.*`, `vitest.config.*`, `vite.config.*`, `package.json`, a lockfile, or anything in `.github/workflows/`) runs every test, and a change that only touches Markdown files skips every test, except one a deterministic override forces (say, a test that imports the changed `.md` file). Neither asks the judge, so every shard of a matrix gets the same answer.
 - **Leanest doesn't run tests itself**: it selects file paths and hands them to your actual runner (`playwright test <paths>`, `vitest run <paths>`). It leaves reporters, retries, sharding, and CI-required-check behavior alone. Anything after `--` goes straight to the runner: `leanest playwright -- --shard=1/3`.
-- **Static checks are out of scope on purpose**: lint/format/typecheck are already fast at full scope, and semantic per-rule selection would add latency for no real payoff. Leanest spends its Jev budget only on suites that are expensive to run in full: e2e today, more later.
+- **Static checks are out of scope on purpose**: lint/format/typecheck are already fast at full scope, and semantic per-rule selection would add latency for no real payoff. Leanest spends its judge calls only on suites that are expensive to run in full: e2e today, more later.
 
 ## Adapters
 
@@ -192,7 +193,26 @@ steps:
 
 This installs the `leanest` version matching the Action's ref with the runner's Node (it doesn't touch your Bun), and replaces your existing "run e2e tests" step: same reporter output, same exit code, just fewer tests executed. No secret required — the default `classifier-dev` provider needs no API key, which also means forked-repo PRs can use it without access to your repo's secrets. Pass `provider: jev` and `typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}` to use Jev instead.
 
-On pull requests it diffs against the PR's base branch; on push, against the previous commit. Override with `base:`. Pass runner flags with `args:`, for example `args: --shard=${{ matrix.shard }}/3`. Each run writes a job summary listing every test file, whether it ran, and why. On pull requests it also posts that report as a PR comment and edits the same comment on later pushes. Turn it off with `comment: false`. Without `pull-requests: write`, and on fork PRs (which get a read-only token), posting logs a warning and the tests' result stands.
+On pull requests it diffs against the PR's base branch; on push, against the previous commit. Override with `base:`. Pass runner flags with `args:`, for example `args: --shard=${{ matrix.shard }}/3`. Each run writes a job summary listing every test file, whether it ran, and why. On pull requests it also posts that report as a PR comment and edits the same comment on later pushes:
+
+```markdown
+### leanest: 5 of 8 playwright test files selected
+
+2 touch the change directly, the judge wasn't sure enough to skip 2 and it thinks 1 is affected.
+
+| Test | Decision | Reason |
+| --- | --- | --- |
+| `tests/e2e/checkout.pw.ts` | RUN | test file changed |
+| `tests/e2e/cart.pw.ts` | RUN | imports a changed file |
+| `tests/e2e/login.pw.ts` | RUN | judge p=0.34 c=0.18 |
+| … | | |
+
+▸ 3 skipped (collapsed, each with the judge's p and c)
+```
+
+If the judge is down, the comment opens with a warning that gives its error and says the full suite ran.
+
+Turn the comment off with `comment: false`. In a sharded matrix only shard 1 posts it. With other matrix axes (browsers, OSes), set `comment: false` on all but one job, or they'll overwrite each other. Without `pull-requests: write`, and on fork PRs (which get a read-only token), posting logs a warning and the tests' result stands.
 
 ### Any other CI
 
