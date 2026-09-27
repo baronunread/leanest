@@ -86,6 +86,23 @@ describe("renderReport", () => {
     expect(md).toContain("<details><summary>2 test files, all RUN</summary>");
   });
 
+  test("keeps pipes, newlines and backticks from breaking the table and the warning", () => {
+    const md = renderReport(
+      "playwright",
+      ".",
+      result({
+        status: "error",
+        error: "classifier.dev error (502): <html>\n`bad` gateway</html>",
+        selectedTests: [tc("a|b.spec.ts")],
+        skipped: [],
+        reasons: { "a|b.spec.ts": "judge unavailable\nretry" },
+      }),
+      false,
+    );
+    expect(md).toContain("> Reason: `classifier.dev error (502): <html> 'bad' gateway</html>`");
+    expect(md).toContain("| `a\\|b.spec.ts` | RUN | judge unavailable retry |");
+  });
+
   test("marker differs per framework and dir, so each run keeps its own comment", () => {
     expect(reportMarker("playwright", ".")).not.toBe(reportMarker("vitest", "."));
     expect(reportMarker("playwright", "apps/web")).not.toBe(reportMarker("playwright", "."));

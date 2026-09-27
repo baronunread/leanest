@@ -70,7 +70,7 @@ runs:
         # ARGS is split on purpose so each runner flag becomes its own argument.
         leanest "$FRAMEWORK" --base "$BASE" --dir "$DIR" -- $ARGS
 
-    # Edits the comment starting with the report's first line (its marker), or posts a new one.
+    # Edits the bot's comment starting with the report's first line (its marker), or posts a new one.
     # Fails soft: fork PRs get a read-only token, and that must not fail the tests.
     - name: Post the report as a PR comment
       if: always() && inputs.comment == 'true' && github.event_name == 'pull_request'
@@ -80,14 +80,28 @@ runs:
         REPO: ${{ github.repository }}
         PR: ${{ github.event.pull_request.number }}
         REPORT: ${{ runner.temp }}/leanest-report.md
+        ARGS: ${{ inputs.args }}
       run: |
         [ -s "$REPORT" ] || exit 0
+        # Sharded jobs would race to create the comment on a PR's first push: only shard 1 posts.
+        # ponytail: other matrix axes (browser, OS) still race; set comment: false on all but one.
+        case " $ARGS " in *" --shard="*|*" --shard "*)
+          case " $ARGS " in *" --shard=1/"*|*" --shard 1/"*) ;; *) exit 0 ;; esac ;;
+        esac
+        BODY="$REPORT"
+        # GitHub rejects comments over 65,536 characters: keep the summary, point to the job summary.
+        if [ "$(wc -c < "$REPORT")" -gt 65000 ]; then
+          BODY="$RUNNER_TEMP/leanest-comment.md"
+          { awk '/^(\| Test|<details>)/ { exit } { print }' "$REPORT"
+            echo "The full table is too long for a comment. It's in this run's job summary."; } > "$BODY"
+        fi
         export MARKER="$(head -n1 "$REPORT")"
         ID="$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
-          --jq '.[] | select(.body | startswith(env.MARKER)) | .id' | sed -n 1p)" &&
+          --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith(env.MARKER))) | .id' |
+          sed -n 1p)" &&
         if [ -n "$ID" ]; then
-          gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$REPORT" >/dev/null
+          gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$BODY" >/dev/null
         else
-          gh api "repos/$REPO/issues/$PR/comments" -F body=@"$REPORT" >/dev/null
+          gh api "repos/$REPO/issues/$PR/comments" -F body=@"$BODY" >/dev/null
         fi ||
         echo "::warning::leanest couldn't post its PR comment. The workflow needs 'pull-requests: write', and fork PRs only get a read-only token."

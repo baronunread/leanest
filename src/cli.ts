@@ -215,6 +215,11 @@ function appendReport(markdown: string): void {
 export const reportMarker = (command: string, dir: string) =>
   `<!-- leanest-report ${command} ${dir} -->`;
 
+// Judge errors often carry HTTP response bodies: keep them on one line, inside one code span.
+const inline = (text: string) => text.replace(/\s+/g, " ").replace(/`/g, "'");
+// A table cell also can't hold a bare pipe.
+const cell = (text: string) => inline(text).replace(/\|/g, "\\|");
+
 export function renderReport(
   command: string,
   dir: string,
@@ -222,7 +227,7 @@ export function renderReport(
   runningAll: boolean,
 ): string {
   const row = (t: TestCase, decision: string) =>
-    `| \`${t.identity.path}\` | ${decision} | ${result.reasons[t.identity.path] ?? ""} |`;
+    `| \`${cell(t.identity.path)}\` | ${decision} | ${cell(result.reasons[t.identity.path] ?? "")} |`;
   const table = (rows: string[]) => [
     "| Test | Decision | Reason |",
     "| --- | --- | --- |",
@@ -242,7 +247,7 @@ export function renderReport(
       "",
       "> [!WARNING]",
       "> **The judge was unavailable, so leanest couldn't select tests and ran the full suite instead.**",
-      `> Reason: \`${result.error}\``,
+      `> Reason: \`${inline(result.error ?? "")}\``,
       ">",
       "> Nothing was skipped, so this run is as safe as not using leanest. The next run tries the judge again.",
       "",
